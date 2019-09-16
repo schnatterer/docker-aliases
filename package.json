@@ -1,0 +1,15 @@
+{
+  "name": "docker-aliases",
+  "version": "0.0.1",
+  "description": "",
+  "main": "createAliases.js",
+  "scripts": {
+    "create-aliases": "node createAliases.js"
+  },
+  "author": "Johannes Schnatterer",
+  "license": "MIT",
+  "dependencies": {
+    "child-process-promise": "2.2.1"
+  },
+  "devDependencies": {}
+}
