@@ -1,25 +1,37 @@
 const exec = require('child-process-promise').exec;
 
+let predefinedDockerCommandAbbrevs = {
+    c: {cmd: 'container'},
+    ex: {cmd: 'exec'},
+    img: {cmd: 'image'},
+    imgs: {cmd: 'images'},
+    l: {cmd: 'logs'},
+    r: {cmd: 'run'},
+    sta: {cmd: 'start'}
+};
+
 main();
 
 function main() {
     let nAliases = 0;
 
     // TODO apply a lot of clean code here
+
+    // TODO set experimental env var?
     exec("docker --help | grep -e '^  [a-z]' | sed 's/  \\(\\w*\\).*/\\1/'")
         .then(result => {
-            let commands = result.stdout.split(/\r?\n/);
+            const commandList = result.stdout.split(/\r?\n/)
+            // TODO cli var for skipping opinionated predefined aliases
+            let commands = makeUniqueCommandAbbrevs(commandList, predefinedDockerCommandAbbrevs);
+
             // TODO make the whole thing recursive starting on top level?
             let promises = [];
             commands.forEach(command => {
-                command = command.trim();
-                // TODO properly abbreviate command, using more chars for duplicates
-                // And use only the most common ones /docker login vs logout vs logs -> dl for logs dlogi, dlogo
-                const abbrevCommand = command.charAt(0);
+
                 // Find all subcommands or args
                 promises.push(
                     // Don't fail when grep does not return a result - some commands don't have params
-                    exec(`docker ${command} --help | grep -e '^  ' || true`)
+                    exec(`docker ${command.cmd} --help | grep -e '^  ' || true`)
                         .then(result2 => {
                             let subCommands = result2.stdout.split(/\r?\n/);
                             let nextSubCommands = findSubCommands(subCommands);
@@ -27,19 +39,17 @@ function main() {
                             // TODO validate this!
                             if (nextSubCommands.length === 0) {
                                 let params = findParams(subCommands);
-                                if (params.length === 0) {
-                                    console.log(`alias d${abbrevCommand}='docker ${command}'`);
-                                }
+                                console.log(`alias d${command.abbrev}='docker ${command.cmd}'`);
                                 // TODO Create all permutations: all parameters in all orders
                                 // e.g. docker run -diPt
                                 // dridPt dritdP dri
                                 params.forEach(outerParam => {
-                                    console.log(`alias d${abbrevCommand}${outerParam}='docker ${command} -${outerParam}'`);
+                                    console.log(`alias d${command.abbrev}${outerParam}='docker ${command.cmd} -${outerParam}'`);
                                     nAliases++;
                                     params.forEach(innerParam => {
                                         if (outerParam !== innerParam) {
                                             // TODO don't print put in map and check duplicates, fail if duplicates!
-                                            console.log(`alias d${abbrevCommand}${outerParam}${innerParam}='docker ${command} -${outerParam}${innerParam}'`);
+                                            console.log(`alias d${command.abbrev}${outerParam}${innerParam}='docker ${command.cmd} -${outerParam}${innerParam}'`);
                                             nAliases++;
                                         }
                                     })
@@ -56,11 +66,90 @@ function main() {
             });
             return Promise.all(promises);
         })
+        // TODO sort alphabetically
         .catch(err => {
             console.error(err);
             process.exit(1)
         })
-        .finally(() => console.log(`Created ${nAliases} aliases`));
+        .finally(() => console.error(`Created ${nAliases} aliases`));
+}
+
+function makeUniqueCommandAbbrevs(commands, predefined) {
+
+    const abbrevs = predefined;
+    const conflicts = [];
+    for (const abbrev in abbrevs) {
+        abbrevs[abbrev].predefined = true;
+        abbrevs[abbrev]['abbrev'] = abbrev;
+
+        // Remove predefined
+        commands = commands.filter(item => item !== abbrevs[abbrev])
+    }
+
+    commands.forEach(command => {
+        command = command.trim();
+        let competingCommand;
+        for (let i = 0; i < command.length; i++) {
+            let potentialAbbrev = command.substring(0, i + 1);
+            if (!competingCommand) {
+                competingCommand = abbrevs[potentialAbbrev];
+                if (!competingCommand) {
+                    if (!conflicts.includes(potentialAbbrev)) {
+                        abbrevs[potentialAbbrev] = {cmd: command, abbrev: potentialAbbrev};
+                        break
+                    }
+                } else {
+                    if (!competingCommand.predefined) {
+                        conflicts.push(potentialAbbrev);
+                        delete abbrevs[potentialAbbrev]
+                    } else {
+                        competingCommand = undefined
+                    }
+                }
+            } else {
+                if (competingCommand.cmd.charAt(i)) {
+                    const competingAbbrev = competingCommand.cmd.substring(0, i + 1);
+                    if (competingAbbrev === potentialAbbrev) {
+                        // Conflict persists
+                        conflicts.push(potentialAbbrev);
+                    } else {
+                        if (!conflicts.includes(potentialAbbrev)) {
+                            // We have found a compromise
+                            abbrevs[potentialAbbrev] = {cmd: command, abbrev: potentialAbbrev};
+                            competingCommand.abbrev = competingAbbrev;
+                            abbrevs[competingAbbrev] = competingCommand;
+                            break
+                        }
+                    }
+                } else {
+                    // competing command is shorter, it get the shorter abbrev
+                    let shorterAbbrev = potentialAbbrev.substring(0, i);
+                    // SKip removing the conflict, it doesnt matter
+                    abbrevs[shorterAbbrev] = competingCommand;
+                    abbrevs[potentialAbbrev] = {cmd: command, abbrev: potentialAbbrev};
+                }
+            }
+        }
+    });
+    return sortObjectToArray(abbrevs)
+}
+
+function sortObjectToArray(o) {
+    var sorted = [],
+        key, a = [];
+
+    for (key in o) {
+        if (o.hasOwnProperty(key)) {
+            a.push(key);
+        }
+    }
+
+    a.sort();
+
+    for (key = 0; key < a.length; key++) {
+        sorted.push(o[a[key]]);
+    }
+    return sorted;
 }
 
 function findSubCommands(command) {
