@@ -16,7 +16,9 @@ cache:
     yarn: true
 
 install:
-  - yarn install
+  - docker build --no-cache -t docker-aliases .
 
 script:
-  - yarn create-aliases
+  # Make sure it creates more than 0 aliases
+  - (docker run --rm docker-aliases) 2>&1 | tee >(cat) | grep  'Created ' | grep -v 'Created 0'
+
