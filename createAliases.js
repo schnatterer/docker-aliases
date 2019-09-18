@@ -57,16 +57,11 @@ function main() {
                             }
                             // TODO return promises map
                             return []
-                        })
-                        .catch(err => {
-                            // TODO proper error handling
-                            console.error(err);
-                            process.exit(1)
                         }));
             });
             return Promise.all(promises);
         })
-        // TODO sort alphabetically
+        // TODO sort alphabetically?
         .catch(err => {
             console.error(err);
             process.exit(1)
@@ -83,18 +78,30 @@ function makeUniqueCommandAbbrevs(commands, predefined) {
         abbrevs[abbrev]['abbrev'] = abbrev;
 
         // Remove predefined
-        commands = commands.filter(item => item !== abbrevs[abbrev])
+        const index = commands.indexOf(abbrevs[abbrev].cmd);
+        if (index !== -1) commands.splice(index, 1);
     }
 
     commands.forEach(command => {
         command = command.trim();
+        if (!command) {
+            // Empty newline might be among the "commands"
+            return;
+        }
         let competingCommand;
-        for (let i = 0; i < command.length; i++) {
+        for (let i = 0; i < command.length + 1; i++) {
+            // Run to length+1 to make this sanity check
+            if (i === command.length) {
+                throw `No matchin abbrev found for command: ${command}`
+            }
             let potentialAbbrev = command.substring(0, i + 1);
             if (!competingCommand) {
                 competingCommand = abbrevs[potentialAbbrev];
                 if (!competingCommand) {
-                    if (!conflicts.includes(potentialAbbrev)) {
+                    if (!conflicts.includes(potentialAbbrev) ||
+                        // Last char of this command. Pick it even though there are conflicts.
+                        //Example: "builds" & "builder" are processed. Then "build" is processed.
+                        i === command.length - 1) {
                         abbrevs[potentialAbbrev] = {cmd: command, abbrev: potentialAbbrev};
                         break
                     }
@@ -122,11 +129,12 @@ function makeUniqueCommandAbbrevs(commands, predefined) {
                         }
                     }
                 } else {
-                    // competing command is shorter, it get the shorter abbrev
+                    // competing command is shorter, it gets the shorter abbrev
                     let shorterAbbrev = potentialAbbrev.substring(0, i);
                     // SKip removing the conflict, it doesnt matter
                     abbrevs[shorterAbbrev] = competingCommand;
                     abbrevs[potentialAbbrev] = {cmd: command, abbrev: potentialAbbrev};
+                    break;
                 }
             }
         }
