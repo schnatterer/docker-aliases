@@ -1,7 +1,7 @@
 const exec = require('child-process-promise').exec;
 
 let predefinedDockerCommandAbbrevs = {
-    b: {cmd: 'build '},
+    b: {cmd: 'build'},
     c: {cmd: 'container'},
     ex: {cmd: 'exec'},
     img: {cmd: 'image'},
@@ -20,7 +20,7 @@ function main() {
 
     // TODO apply a lot of clean code here
 
-    // TODO set experimental env var?
+    // TODO set experimental env var? export DOCKER_CLI_EXPERIMENTAL=enabled
     exec("docker --help | grep -e '^  [a-z]' | sed 's/  \\(\\w*\\).*/\\1/'")
         .then(result => {
             const commandList = result.stdout.split(/\r?\n/)
@@ -95,7 +95,7 @@ function makeUniqueCommandAbbrevs(commands, predefined) {
         for (let i = 0; i < command.length + 1; i++) {
             // Run to length+1 to make this sanity check
             if (i === command.length) {
-                throw `No matchin abbrev found for command: ${command}`
+                throw `No matching abbreviation found for command: ${command}`
             }
             let potentialAbbrev = command.substring(0, i + 1);
             if (!competingCommand) {

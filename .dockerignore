@@ -1,0 +1,6 @@
+# Ignore all
+**
+# Whiteliste
+!package.json
+!createAliases.js
+!yarn.lock
