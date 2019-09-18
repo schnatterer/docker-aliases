@@ -1,13 +1,16 @@
 const exec = require('child-process-promise').exec;
 
 let predefinedDockerCommandAbbrevs = {
+    b: {cmd: 'build '},
     c: {cmd: 'container'},
     ex: {cmd: 'exec'},
     img: {cmd: 'image'},
     imgs: {cmd: 'images'},
     l: {cmd: 'logs'},
     r: {cmd: 'run'},
-    sta: {cmd: 'start'}
+    t: {cmd: 'tag'},
+    sta: {cmd: 'start'},
+    v: {cmd: 'volume'}
 };
 
 main();
