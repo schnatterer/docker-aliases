@@ -20,8 +20,7 @@ function main() {
 
     // TODO apply a lot of clean code here
 
-    // TODO set experimental env var? export DOCKER_CLI_EXPERIMENTAL=enabled
-    exec("docker --help | grep -e '^  [a-z]' | sed 's/  \\(\\w*\\).*/\\1/'")
+    exec("DOCKER_CLI_EXPERIMENTAL=enabled docker --help | grep -e '^  [a-z]' | sed 's/  \\(\\w*\\).*/\\1/'")
         .then(result => {
             const commandList = result.stdout.split(/\r?\n/)
             // TODO cli var for skipping opinionated predefined aliases
@@ -34,7 +33,7 @@ function main() {
                 // Find all subcommands or args
                 promises.push(
                     // Don't fail when grep does not return a result - some commands don't have params
-                    exec(`docker ${command.cmd} --help | grep -e '^  ' || true`)
+                    exec(`DOCKER_CLI_EXPERIMENTAL=enabled docker ${command.cmd} --help | grep -e '^  ' || true`)
                         .then(result2 => {
                             let subCommands = result2.stdout.split(/\r?\n/);
                             let nextSubCommands = findSubCommands(subCommands);
