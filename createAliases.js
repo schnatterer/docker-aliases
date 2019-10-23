@@ -20,9 +20,10 @@ function main() {
 
     // TODO apply a lot of clean code here
 
+    // TODO podman
     exec("DOCKER_CLI_EXPERIMENTAL=enabled docker --help | grep -e '^  [a-z]' | sed 's/  \\(\\w*\\).*/\\1/'")
         .then(result => {
-            const commandList = result.stdout.split(/\r?\n/)
+            const commandList = result.stdout.split(/\r?\n/);
             // TODO cli var for skipping opinionated predefined aliases
             let commands = makeUniqueCommandAbbrevs(commandList, predefinedDockerCommandAbbrevs);
 
@@ -38,24 +39,21 @@ function main() {
                             let subCommands = result2.stdout.split(/\r?\n/);
                             let nextSubCommands = findSubCommands(subCommands);
                             // Typically we have either subcommands or args in docker CLI
-                            // TODO validate this!
+                            // TODO validate this! Or implement both
                             if (nextSubCommands.length === 0) {
                                 let params = findParams(subCommands);
                                 console.log(`alias d${command.abbrev}='docker ${command.cmd}'`);
-                                // TODO Create all permutations: all parameters in all orders
+                                nAliases++;
+
+                                // TODO How to handle parameters?
+                                //  All permutations, i.e. all parameters in all orders are way to many!
                                 // e.g. docker run -diPt
-                                // dridPt dritdP dri
-                                params.forEach(outerParam => {
-                                    console.log(`alias d${command.abbrev}${outerParam}='docker ${command.cmd} -${outerParam}'`);
-                                    nAliases++;
-                                    params.forEach(innerParam => {
-                                        if (outerParam !== innerParam) {
-                                            // TODO don't print put in map and check duplicates, fail if duplicates!
-                                            console.log(`alias d${command.abbrev}${outerParam}${innerParam}='docker ${command.cmd} -${outerParam}${innerParam}'`);
-                                            nAliases++;
-                                        }
-                                    })
-                                })
+                                // dridPt dritdP dri ...
+                                //const permutations = createPermutations(params);
+                                //permutations.forEach(permutation => {
+                                    // TODO don't print put in map and check duplicates, fail if duplicates!
+                                    //console.log(`alias d${command.abbrev}${permutation}='docker ${command.cmd} -${permutation}'`);
+                                //});
                             }
                             // TODO return promises map
                             return []
@@ -69,6 +67,23 @@ function main() {
             process.exit(1)
         })
         .finally(() => console.error(`Created ${nAliases} aliases`));
+}
+
+function createPermutations(array) {
+    let ret = [];
+
+    for (let i = 0; i < array.length; i = i + 1) {
+        let rest = createPermutations(array.slice(0, i).concat(array.slice(i + 1)));
+
+        if(!rest.length) {
+            ret.push(array[i])
+        } else {
+            for(let j = 0; j < rest.length; j = j + 1) {
+                ret.push(array[i] + rest[j])
+            }
+        }
+    }
+    return ret;
 }
 
 function makeUniqueCommandAbbrevs(commands, predefined) {
