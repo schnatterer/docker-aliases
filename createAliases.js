@@ -169,7 +169,7 @@ function makeUniqueCommandAbbrevs(commands, predefined) {
 }
 
 function sortObjectToArray(o) {
-    var sorted = [],
+    let sorted = [],
         key, a = [];
 
     for (key in o) {
@@ -197,7 +197,7 @@ function findSubCommands(commands) {
             commandLine.startsWith('  ')) {
             subCommandLines.push(commandLine)
         } else if (commandLine.startsWith('Commands:') ||
-                   commandLine.startsWith('Management Commands:')) {
+            commandLine.startsWith('Management Commands:')) {
             afterCommandsLine = true
         }
     });
@@ -215,15 +215,37 @@ function findParams(commands) {
 }
 
 function printAliases(commandAliases) {
-    // TODO check duplicates, fail if duplicates!
-    // TODO sort alphabetically?
     let nAliases = 0;
+    let flattenedAliases = {};
+    let duplicatedAliases = {};
     commandAliases.forEach(aliases => {
         Object.keys(aliases).forEach(abbrev => {
-            console.log(`alias d${abbrev}='docker ${aliases[abbrev]}'`);
-            nAliases++;
+            if (flattenedAliases[abbrev]) {
+                duplicatedAliases[abbrev] = duplicatedAliases[abbrev] || [];
+                duplicatedAliases[abbrev].push(flattenedAliases[abbrev]);
+                duplicatedAliases[abbrev].push(aliases[abbrev]);
+            } else {
+                flattenedAliases[abbrev] = aliases[abbrev];
+            }
         });
     });
+
+    const nDuplicates = Object.keys(duplicatedAliases).length;
+    if (nDuplicates) {
+        // TODO fail?
+        console.error(`${nDuplicates} duplicated aliases found:`);
+        Object.keys(duplicatedAliases).forEach(duplicatedAlias => {
+            let aliasesAsString = JSON.stringify(duplicatedAliases[duplicatedAlias].map(alias => `docker ${alias}`));
+            console.error(`d${duplicatedAlias}: ${aliasesAsString}`);
+        })
+    }
+
+    let sortedAbbrevs = Object.keys(flattenedAliases).sort();
+    sortedAbbrevs.forEach(abbrev => {
+        console.log(`alias d${abbrev}='docker ${flattenedAliases[abbrev]}'`);
+        nAliases++;
+    });
+
     // Print to stderr in order to allow for piping stdout to aliases file
-    console.error(`Created ${nAliases} aliases`)
+    console.error(`Created ${nAliases} aliases, with ${nDuplicates} among them.`)
 }
