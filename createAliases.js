@@ -42,13 +42,14 @@ function main() {
 
 function parseCommand(command) {
     // Don't fail when grep does not return a result - some commands don't have params
-    return exec(`DOCKER_CLI_EXPERIMENTAL=enabled docker ${command.cmd} --help | grep -e '^  ' || true`)
+    return exec(`DOCKER_CLI_EXPERIMENTAL=enabled docker ${command.cmd} --help`)
         .then(result2 => {
             let result = {};
             let subCommands = result2.stdout.split(/\r?\n/);
             let nextSubCommands = findSubCommands(subCommands);
             // Typically we have either subcommands or args in docker CLI
-            // TODO validate this! Or implement both
+            // TODO This seems not to be true for all commands - see e.g. "docker stacks --help"
+            // How to handle? Implement both?
             if (nextSubCommands.length === 0) {
                 let params = findParams(subCommands);
                 result[command.abbrev] = command.cmd;
@@ -59,9 +60,17 @@ function parseCommand(command) {
                 // dridPt dritdP dri ...
                 //const permutations = createPermutations(params);
                 //permutations.forEach(permutation => {
-                // TODO don't print put in map and check duplicates, fail if duplicates!
+                // TODO don't print put in map
                 //console.log(`alias d${command.abbrev}${permutation}='docker ${command.cmd} -${permutation}'`);
                 //});
+            } else {
+                // TODO can we make this globally unique?
+                let nextSubCommandsAbbrevs = makeUniqueCommandAbbrevs(nextSubCommands, {});
+                nextSubCommandsAbbrevs.forEach(subCommand => {
+                    result[`${command.abbrev}${subCommand.abbrev}`] = `${command.cmd} ${subCommand.cmd}`
+                });
+                result[command.abbrev] = command.cmd;
+                // TODO recurse subcommands
             }
             return result
         })
@@ -73,10 +82,10 @@ function createPermutations(array) {
     for (let i = 0; i < array.length; i = i + 1) {
         let rest = createPermutations(array.slice(0, i).concat(array.slice(i + 1)));
 
-        if(!rest.length) {
+        if (!rest.length) {
             ret.push(array[i])
         } else {
-            for(let j = 0; j < rest.length; j = j + 1) {
+            for (let j = 0; j < rest.length; j = j + 1) {
                 ret.push(array[i] + rest[j])
             }
         }
@@ -97,6 +106,8 @@ function makeUniqueCommandAbbrevs(commands, predefined) {
         if (index !== -1) commands.splice(index, 1);
     }
 
+    // Sort commands in order to have shorter versions first. Otherwise this might fail ['signer', 'sign']
+    commands.sort();
     commands.forEach(command => {
         command = command.trim();
         if (!command) {
@@ -176,8 +187,22 @@ function sortObjectToArray(o) {
 }
 
 function findSubCommands(commands) {
-    //TODO
-    return [];
+    let subCommandLines = [];
+    let afterCommandsLine = false;
+    commands.forEach(commandLine => {
+        if (afterCommandsLine &&
+            // Get rid of empty lines
+            commandLine &&
+            // Commands and params are indented, get rid of all other texts
+            commandLine.startsWith('  ')) {
+            subCommandLines.push(commandLine)
+        } else if (commandLine.startsWith('Commands:') ||
+                   commandLine.startsWith('Management Commands:')) {
+            afterCommandsLine = true
+        }
+    });
+    let subCommands = subCommandLines.map(subCommand => subCommand.replace(/ *(\w*) .*/, "$1").trim());
+    return subCommands;
 }
 
 function findParams(commands) {
@@ -190,6 +215,7 @@ function findParams(commands) {
 }
 
 function printAliases(commandAliases) {
+    // TODO check duplicates, fail if duplicates!
     // TODO sort alphabetically?
     let nAliases = 0;
     commandAliases.forEach(aliases => {
