@@ -20,6 +20,7 @@ function main() {
 
     // TODO podman
 
+    // TODO use findSubCommands() findParams() logic here?
     exec("DOCKER_CLI_EXPERIMENTAL=enabled docker --help | grep -e '^  [a-z]' | sed 's/  \\(\\w*\\).*/\\1/'")
         .then(result => {
             const commandList = result.stdout.split(/\r?\n/);
@@ -29,7 +30,7 @@ function main() {
             // TODO make the whole thing recursive starting on top level?
             let promises = [];
             commands.forEach(command => {
-                promises.push(parseCommand(command));
+                promises.push(parseCommand(command, {}));
             });
             return Promise.all(promises);
         })
@@ -40,11 +41,11 @@ function main() {
         })
 }
 
-function parseCommand(command) {
+function parseCommand(command, currentResult) {
     // Don't fail when grep does not return a result - some commands don't have params
     return exec(`DOCKER_CLI_EXPERIMENTAL=enabled docker ${command.cmd} --help`)
         .then(result2 => {
-            let result = {};
+            let result = currentResult;
             let subCommands = result2.stdout.split(/\r?\n/);
             let nextSubCommands = findSubCommands(subCommands);
             // Typically we have either subcommands or args in docker CLI
@@ -63,16 +64,25 @@ function parseCommand(command) {
                 // TODO don't print put in map
                 //console.log(`alias d${command.abbrev}${permutation}='docker ${command.cmd} -${permutation}'`);
                 //});
+                return result
             } else {
-                // TODO can we make this globally unique?
+                // TODO can we make this globally unique, i.e. resolve all conflicts?
+                // TODO pass predefined here to allow for predefined on all lvls.
+                //     Needs changing makeUniqueCommandAbbrevs(), because otherwise predefined would be added multiple times
                 let nextSubCommandsAbbrevs = makeUniqueCommandAbbrevs(nextSubCommands, {});
                 nextSubCommandsAbbrevs.forEach(subCommand => {
-                    result[`${command.abbrev}${subCommand.abbrev}`] = `${command.cmd} ${subCommand.cmd}`
+                    subCommand.abbrev = `${command.abbrev}${subCommand.abbrev}`;
+                    subCommand.cmd = `${command.cmd} ${subCommand.cmd}`;
                 });
                 result[command.abbrev] = command.cmd;
-                // TODO recurse subcommands
+
+                // Recurse into subcommands
+                let promises = [];
+                nextSubCommandsAbbrevs.forEach(nextSubCommand => {
+                    promises.push(parseCommand(nextSubCommand, result));
+                });
+                return Promise.all(promises);
             }
-            return result
         })
 }
 
@@ -219,6 +229,11 @@ function printAliases(commandAliases) {
     let flattenedAliases = {};
     let duplicatedAliases = {};
     commandAliases.forEach(aliases => {
+        if (Array.isArray(aliases)) {
+            // Nested subcommand. All have the same contents, because a collection variable is used in parseCommand()
+            // The array reflect the promises per subcommand.
+            aliases = aliases[0]
+        }
         Object.keys(aliases).forEach(abbrev => {
             if (flattenedAliases[abbrev]) {
                 duplicatedAliases[abbrev] = duplicatedAliases[abbrev] || [];
@@ -247,5 +262,5 @@ function printAliases(commandAliases) {
     });
 
     // Print to stderr in order to allow for piping stdout to aliases file
-    console.error(`Created ${nAliases} aliases, with ${nDuplicates} among them.`)
+    console.error(`Created ${nAliases} aliases, with ${nDuplicates} duplicates among them.`)
 }
