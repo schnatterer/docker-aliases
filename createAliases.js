@@ -1,87 +1,73 @@
 const exec = require('child-process-promise').exec;
 
-let predefinedDockerCommandAbbrevs = {
-    b: {cmd: 'build'},
-    c: {cmd: 'container'},
-    ex: {cmd: 'exec'},
-    img: {cmd: 'image'},
-    imgs: {cmd: 'images'},
-    l: {cmd: 'logs'},
-    r: {cmd: 'run'},
-    t: {cmd: 'tag'},
-    sta: {cmd: 'start'},
-    v: {cmd: 'volume'}
+// TODO provide CLI option for overriding (e.g. for podman) and use throughout app
+const envVars = 'DOCKER_CLI_EXPERIMENTAL=enabled';
+const binary = 'docker';
+const binaryAbbrev = binary.charAt(0);
+
+// TODO cli var for skipping opinionated predefined aliases
+// Note that binary is added to abbrev an command automatically
+// e.g. b : build -> db : docker build
+let predefinedAbbrevs = {
+    b: 'build',
+    c: 'container',
+    ex: 'exec',
+    img: 'image',
+    imgs: 'images',
+    l: 'logs',
+    r: 'run',
+    t: 'tag',
+    sta: 'start',
+    v: 'volume'
 };
 
 main();
 
 function main() {
-    // TODO apply a lot of clean code here
+    predefinedAbbrevs = prependPredefined();
 
-    // TODO podman
-
-    // TODO use findSubCommands() findParams() logic here?
-    exec("DOCKER_CLI_EXPERIMENTAL=enabled docker --help | grep -e '^  [a-z]' | sed 's/  \\(\\w*\\).*/\\1/'")
-        .then(result => {
-            const commandList = result.stdout.split(/\r?\n/);
-            // TODO cli var for skipping opinionated predefined aliases
-            let commands = makeUniqueCommandAbbrevs(commandList, predefinedDockerCommandAbbrevs);
-
-            // TODO make the whole thing recursive starting on top level?
-            let promises = [];
-            commands.forEach(command => {
-                promises.push(parseCommand(command, {}));
-            });
-            return Promise.all(promises);
+    let commands = {};
+    parseCommands('docker', undefined, commands)
+        .then(() => {
+            let aliases = makeUniqueCommandAbbrevs(commands, predefinedAbbrevs);
+            printAliases(aliases)
         })
-        .then(commandAliases => printAliases(commandAliases))
         .catch(err => {
             console.error(err);
             process.exit(1)
         })
 }
 
-function parseCommand(command, currentResult) {
-    // Don't fail when grep does not return a result - some commands don't have params
-    return exec(`DOCKER_CLI_EXPERIMENTAL=enabled docker ${command.cmd} --help`)
-        .then(result2 => {
-            let result = currentResult;
-            let subCommands = result2.stdout.split(/\r?\n/);
+function prependPredefined() {
+    const prepended = {};
+    Object.keys(predefinedAbbrevs).forEach(abbrev => {
+        prepended[`${binaryAbbrev}${abbrev}`] = `${binary} ${predefinedAbbrevs[abbrev]}`
+    });
+    return prepended;
+}
+
+function parseCommands(command, parent, currentResult) {
+    const absoluteCommand = `${parent ? `${parent.cmdString} ${command}` : command}`;
+    return exec(`${envVars} ${absoluteCommand} --help`)
+        .then(execOut => {
+            let subCommands = execOut.stdout.split(/\r?\n/);
             let nextSubCommands = findSubCommands(subCommands);
-            // Typically we have either subcommands or args in docker CLI
-            // TODO This seems not to be true for all commands - see e.g. "docker stacks --help"
-            // How to handle? Implement both?
-            if (nextSubCommands.length === 0) {
-                let params = findParams(subCommands);
-                result[command.abbrev] = command.cmd;
 
-                // TODO How to handle parameters?
-                //  All permutations, i.e. all parameters in all orders are way to many!
-                // e.g. docker run -diPt
-                // dridPt dritdP dri ...
-                //const permutations = createPermutations(params);
-                //permutations.forEach(permutation => {
-                // TODO don't print put in map
-                //console.log(`alias d${command.abbrev}${permutation}='docker ${command.cmd} -${permutation}'`);
-                //});
-                return result
-            } else {
-                // TODO can we make this globally unique, i.e. resolve all conflicts?
-                // TODO pass predefined here to allow for predefined on all lvls.
-                //     Needs changing makeUniqueCommandAbbrevs(), because otherwise predefined would be added multiple times
-                let nextSubCommandsAbbrevs = makeUniqueCommandAbbrevs(nextSubCommands, {});
-                nextSubCommandsAbbrevs.forEach(subCommand => {
-                    subCommand.abbrev = `${command.abbrev}${subCommand.abbrev}`;
-                    subCommand.cmd = `${command.cmd} ${subCommand.cmd}`;
-                });
-                result[command.abbrev] = command.cmd;
+            let commandObject = {cmd: command, parent: parent, cmdString: absoluteCommand};
+            commandObject.subcommands = nextSubCommands;
+            commandObject.params = findParams(subCommands);
+            currentResult[absoluteCommand] = commandObject;
 
+            if (nextSubCommands.length > 0) {
                 // Recurse into subcommands
                 let promises = [];
-                nextSubCommandsAbbrevs.forEach(nextSubCommand => {
-                    promises.push(parseCommand(nextSubCommand, result));
+                nextSubCommands.forEach(nextSubCommand => {
+                    promises.push(parseCommands(nextSubCommand, commandObject, currentResult));
                 });
                 return Promise.all(promises);
+            } else {
+                // End recursion
+                return currentResult
             }
         })
 }
@@ -105,77 +91,91 @@ function createPermutations(array) {
 
 function makeUniqueCommandAbbrevs(commands, predefined) {
 
-    const abbrevs = predefined;
-    const conflicts = [];
-    for (const abbrev in abbrevs) {
-        abbrevs[abbrev].predefined = true;
-        abbrevs[abbrev]['abbrev'] = abbrev;
+    // TODO when changing an abbrev because of conflict, change all its subcommand's abbrevs as well!
+    //alias dap='docker app'
+    //alias dab='docker app bundle'
 
-        // Remove predefined
-        const index = commands.indexOf(abbrevs[abbrev].cmd);
-        if (index !== -1) commands.splice(index, 1);
-    }
+    // TODO How to handle parameters?
+    //  All permutations, i.e. all parameters in all orders are way to many!
+    // e.g. docker run -diPt
+    // dridPt dritdP dri ...
+    //const permutations = createPermutations(params);
+    // Only use sorted permutations, i.e. abc, ac, bc, c, b, a?
+    const abbrevs = {};
+    const conflicts = [];
+
+    Object.keys(predefined).forEach(predefinedAbbrev => {
+        abbrevs[predefinedAbbrev] = commands[predefined[predefinedAbbrev]];
+        abbrevs[predefinedAbbrev].predefined = true;
+        abbrevs[predefinedAbbrev].abbrev = predefinedAbbrev;
+    });
 
     // Sort commands in order to have shorter versions first. Otherwise this might fail ['signer', 'sign']
-    commands.sort();
-    commands.forEach(command => {
-        command = command.trim();
-        if (!command) {
-            // Empty newline might be among the "commands"
-            return;
-        }
+    Object.keys(commands).sort().forEach(absoluteCommand => {
+        let commandObj = commands[absoluteCommand];
+        const currentSubCommand = commandObj.cmd;
         let competingCommand;
-        for (let i = 0; i < command.length + 1; i++) {
-            // Run to length+1 to make this sanity check
-            if (i === command.length) {
-                throw `No matching abbreviation found for command: ${command}`
+        for (let i = 0; i < currentSubCommand.length + 1; i++) {
+            // Run to length+1 for sanity checking
+            if (i === currentSubCommand.length) {
+                throw `No matching abbreviation found for command: ${absoluteCommand}`
             }
-            let potentialAbbrev = command.substring(0, i + 1);
+            const parentAbbrev = commandObj.parent ? commandObj.parent.abbrev : '';
+            let potentialAbbrev = `${parentAbbrev}${currentSubCommand.substring(0, i + 1)}`;
             if (!competingCommand) {
                 competingCommand = abbrevs[potentialAbbrev];
                 if (!competingCommand) {
                     if (!conflicts.includes(potentialAbbrev) ||
                         // Last char of this command. Pick it even though there are conflicts.
                         //Example: "builds" & "builder" are processed. Then "build" is processed.
-                        i === command.length - 1) {
-                        abbrevs[potentialAbbrev] = {cmd: command, abbrev: potentialAbbrev};
+                        i === absoluteCommand.length - 1) {
+                        setAbbrev(abbrevs, potentialAbbrev, commandObj);
                         break
                     }
                 } else {
                     if (!competingCommand.predefined) {
                         conflicts.push(potentialAbbrev);
-                        delete abbrevs[potentialAbbrev]
+                        delete abbrevs[potentialAbbrev];
+                        delete commandObj.abbrev
                     } else {
                         competingCommand = undefined
                     }
                 }
             } else {
-                if (competingCommand.cmd.charAt(i)) {
-                    const competingAbbrev = competingCommand.cmd.substring(0, i + 1);
+                if (competingCommand.cmdString.charAt(i)) {
+                    const competingParentAbbrev = competingCommand.parent ? competingCommand.parent.abbrev : '';
+                    const competingAbbrev = `${competingParentAbbrev}${competingCommand.cmd.substring(0, i + 1)}`;
                     if (competingAbbrev === potentialAbbrev) {
                         // Conflict persists
                         conflicts.push(potentialAbbrev);
                     } else {
                         if (!conflicts.includes(potentialAbbrev)) {
                             // We have found a compromise
-                            abbrevs[potentialAbbrev] = {cmd: command, abbrev: potentialAbbrev};
-                            competingCommand.abbrev = competingAbbrev;
-                            abbrevs[competingAbbrev] = competingCommand;
+                            setAbbrev(abbrevs, potentialAbbrev, commandObj);
+                            setAbbrev(abbrevs, competingAbbrev, competingCommand);
                             break
                         }
                     }
                 } else {
                     // competing command is shorter, it gets the shorter abbrev
                     let shorterAbbrev = potentialAbbrev.substring(0, i);
-                    // SKip removing the conflict, it doesnt matter
-                    abbrevs[shorterAbbrev] = competingCommand;
-                    abbrevs[potentialAbbrev] = {cmd: command, abbrev: potentialAbbrev};
+                    // Skip removing the conflict, it doesnt matter
+                    setAbbrev(abbrevs, shorterAbbrev, competingCommand);
+                    setAbbrev(abbrevs, potentialAbbrev, commandObj);
                     break;
                 }
             }
         }
     });
     return sortObjectToArray(abbrevs)
+}
+
+function setAbbrev(abbrevs, abbrev, commandObj) {
+    if (abbrevs[abbrev]) {
+        console.error(`Duplicates for abbrev ${abbrev}! ${abbrevs[abbrev].cmdString} & ${commandObj.cmdString} `)
+    }
+    commandObj.abbrev = abbrev;
+    abbrevs[abbrev] = commandObj;
 }
 
 function sortObjectToArray(o) {
@@ -211,7 +211,7 @@ function findSubCommands(commands) {
             afterCommandsLine = true
         }
     });
-    let subCommands = subCommandLines.map(subCommand => subCommand.replace(/ *(\w*) .*/, "$1").trim());
+    let subCommands = subCommandLines.map(subCommand => subCommand.replace(/ *(\w-*)\** .*/, "$1").trim());
     return subCommands;
 }
 
@@ -226,41 +226,11 @@ function findParams(commands) {
 
 function printAliases(commandAliases) {
     let nAliases = 0;
-    let flattenedAliases = {};
-    let duplicatedAliases = {};
-    commandAliases.forEach(aliases => {
-        if (Array.isArray(aliases)) {
-            // Nested subcommand. All have the same contents, because a collection variable is used in parseCommand()
-            // The array reflect the promises per subcommand.
-            aliases = aliases[0]
-        }
-        Object.keys(aliases).forEach(abbrev => {
-            if (flattenedAliases[abbrev]) {
-                duplicatedAliases[abbrev] = duplicatedAliases[abbrev] || [];
-                duplicatedAliases[abbrev].push(flattenedAliases[abbrev]);
-                duplicatedAliases[abbrev].push(aliases[abbrev]);
-            } else {
-                flattenedAliases[abbrev] = aliases[abbrev];
-            }
-        });
-    });
-
-    const nDuplicates = Object.keys(duplicatedAliases).length;
-    if (nDuplicates) {
-        // TODO fail?
-        console.error(`${nDuplicates} duplicated aliases found:`);
-        Object.keys(duplicatedAliases).forEach(duplicatedAlias => {
-            let aliasesAsString = JSON.stringify(duplicatedAliases[duplicatedAlias].map(alias => `docker ${alias}`));
-            console.error(`d${duplicatedAlias}: ${aliasesAsString}`);
-        })
-    }
-
-    let sortedAbbrevs = Object.keys(flattenedAliases).sort();
-    sortedAbbrevs.forEach(abbrev => {
-        console.log(`alias d${abbrev}='docker ${flattenedAliases[abbrev]}'`);
+    commandAliases.forEach(cmd => {
+        console.log(`alias ${cmd.abbrev}='${cmd.cmdString}'`);
         nAliases++;
     });
 
     // Print to stderr in order to allow for piping stdout to aliases file
-    console.error(`Created ${nAliases} aliases, with ${nDuplicates} duplicates among them.`)
+    console.error(`Created ${nAliases} aliases.`)
 }
