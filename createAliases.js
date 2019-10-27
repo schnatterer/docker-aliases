@@ -24,12 +24,11 @@ let predefinedAbbrevs = {
 main();
 
 function main() {
-    predefinedAbbrevs = prependPredefined();
 
     let commands = {};
     parseCommands('docker', undefined, commands)
         .then(() => {
-            let aliases = makeUniqueCommandAbbrevs(commands, predefinedAbbrevs);
+            let aliases = createAbbrevs(commands, createPredefinedAbbrevs());
             printAliases(aliases)
         })
         .catch(err => {
@@ -38,7 +37,7 @@ function main() {
         })
 }
 
-function prependPredefined() {
+function createPredefinedAbbrevs() {
     const prepended = {};
     Object.keys(predefinedAbbrevs).forEach(abbrev => {
         prepended[`${binaryAbbrev}${abbrev}`] = `${binary} ${predefinedAbbrevs[abbrev]}`
@@ -50,12 +49,12 @@ function parseCommands(command, parent, currentResult) {
     const absoluteCommand = `${parent ? `${parent.cmdString} ${command}` : command}`;
     return exec(`${envVars} ${absoluteCommand} --help`)
         .then(execOut => {
-            let subCommands = execOut.stdout.split(/\r?\n/);
-            let nextSubCommands = findSubCommands(subCommands);
+            let stdoutLines = execOut.stdout.split(/\r?\n/);
+            let nextSubCommands = findCommands(stdoutLines);
 
             let commandObject = {cmd: command, parent: parent, cmdString: absoluteCommand};
             commandObject.subcommands = nextSubCommands;
-            commandObject.params = findParams(subCommands);
+            commandObject.params = findParams(stdoutLines);
             currentResult[absoluteCommand] = commandObject;
 
             if (nextSubCommands.length > 0) {
@@ -89,7 +88,7 @@ function createPermutations(array) {
     return ret;
 }
 
-function makeUniqueCommandAbbrevs(commands, predefined) {
+function createAbbrevs(commands, predefined) {
 
     // TODO when changing an abbrev because of conflict, change all its subcommand's abbrevs as well!
     //alias dap='docker app'
@@ -196,30 +195,30 @@ function sortObjectToArray(o) {
     return sorted;
 }
 
-function findSubCommands(commands) {
-    let subCommandLines = [];
+function findCommands(stdoutLines) {
+    let commandLines = [];
     let afterCommandsLine = false;
-    commands.forEach(commandLine => {
+    stdoutLines.forEach(stdOutLine => {
         if (afterCommandsLine &&
             // Get rid of empty lines
-            commandLine &&
+            stdOutLine &&
             // Commands and params are indented, get rid of all other texts
-            commandLine.startsWith('  ')) {
-            subCommandLines.push(commandLine)
-        } else if (commandLine.startsWith('Commands:') ||
-            commandLine.startsWith('Management Commands:')) {
+            stdOutLine.startsWith('  ')) {
+            commandLines.push(stdOutLine)
+        } else if (stdOutLine.startsWith('Commands:') ||
+            stdOutLine.startsWith('Management Commands:')) {
             afterCommandsLine = true
         }
     });
-    let subCommands = subCommandLines.map(subCommand => subCommand.replace(/ *(\w-*)\** .*/, "$1").trim());
-    return subCommands;
+    let commands = commandLines.map(subCommand => subCommand.replace(/ *(\w-*)\** .*/, "$1").trim());
+    return commands;
 }
 
-function findParams(commands) {
+function findParams(stdoutLines) {
     // Match only boolean args (for now) - maybe in future: find also non-booleans and create one permutation for each with this params at the end?
     //let params = commands.filter(command => /--[^ ]*  /.test(command));
     // Match only boolean args with a single param (for now) - maybe in future find a way to support, e.g. --rm as well
-    let params = commands.filter(command => /^ *-\w,/.test(command));
+    let params = stdoutLines.filter(stdoutLine => /^ *-\w,/.test(stdoutLine));
     let abbrevs = params.map(param => param.replace(/-(\w).*/, "$1").trim());
     return abbrevs;
 }
