@@ -90,10 +90,6 @@ function createPermutations(array) {
 
 function createAbbrevs(commands, predefined) {
 
-    // TODO when changing an abbrev because of conflict, change all its subcommand's abbrevs as well!
-    //alias dap='docker app'
-    //alias dab='docker app bundle'
-
     // TODO How to handle parameters?
     //  All permutations, i.e. all parameters in all orders are way to many!
     // e.g. docker run -diPt
@@ -151,7 +147,7 @@ function createAbbrevs(commands, predefined) {
                         if (!conflicts.includes(potentialAbbrev)) {
                             // We have found a compromise
                             setAbbrev(abbrevs, potentialAbbrev, commandObj);
-                            setAbbrev(abbrevs, competingAbbrev, competingCommand);
+                            updateAbbrev(abbrevs, competingAbbrev, competingCommand, commands);
                             break
                         }
                     }
@@ -159,14 +155,29 @@ function createAbbrevs(commands, predefined) {
                     // competing command is shorter, it gets the shorter abbrev
                     let shorterAbbrev = potentialAbbrev.substring(0, i);
                     // Skip removing the conflict, it doesnt matter
-                    setAbbrev(abbrevs, shorterAbbrev, competingCommand);
                     setAbbrev(abbrevs, potentialAbbrev, commandObj);
+                    updateAbbrev(abbrevs, shorterAbbrev, competingCommand, commands);
                     break;
                 }
             }
         }
     });
     return sortObjectToArray(abbrevs)
+}
+
+function updateAbbrev(abbrevs, abbrev, commandObj, commands) {
+    commandObj.subcommands.forEach( subCommand => {
+        const subCommandObj = commands[`${commandObj.cmdString} ${subCommand}`];
+        if (!subCommandObj.abbrev) {
+            console.error(`Subcommand does not have abbrev while updating: ${subCommandObj.cmdString}`)
+        } else {
+            delete abbrevs[subCommandObj.abbrev];
+            const newSubCommandAbbrev = subCommandObj.abbrev.replace(new RegExp(`^${commandObj.abbrev}`), abbrev);
+            updateAbbrev(abbrevs, newSubCommandAbbrev, subCommandObj, commands)
+        }
+    });
+    abbrevs[abbrev] = commandObj;
+    commandObj.abbrev = abbrev;
 }
 
 function setAbbrev(abbrevs, abbrev, commandObj) {
