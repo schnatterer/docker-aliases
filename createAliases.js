@@ -8,14 +8,31 @@ const binaryAbbrev = binary.charAt(0);
 // TODO cli var for skipping opinionated predefined aliases
 // Note that binary is added to abbrev an command automatically
 // e.g. b : build -> db : docker build
+// This contains a couple of commands that result in shorter abbreviations.
+// Why? The algorithm creates compromises, e.g. stop vs. start results in dsto and dsta, no one get ds or dst
+// These predefineds are pretty much opinionated, trying to create shorter abbrevs for commands that are used more often
+// TODO use the same abbrevs also in nested commands, i.e. svc for docker services and docker stack services
 let predefinedAbbrevs = {
+    a: 'app',
     b: 'build',
+    br: 'builder',
+    bx: 'buildx',
     c: 'container',
+    cm: 'commit',
+    cf: 'config',
+    cx: 'context',
     ex: 'exec',
     img: 'image',
     imgs: 'images',
+    n: 'network',
     l: 'logs',
+    p: 'plugin',
+    ps: 'ps',
     r: 'run',
+    s: 'swarm',
+    se: 'search',
+    svc: 'service',
+    st: 'stack',
     t: 'tag',
     sta: 'start',
     v: 'volume'
@@ -100,9 +117,13 @@ function createAbbrevs(commands, predefined) {
     const conflicts = [];
 
     Object.keys(predefined).forEach(predefinedAbbrev => {
-        abbrevs[predefinedAbbrev] = commands[predefined[predefinedAbbrev]];
-        abbrevs[predefinedAbbrev].predefined = true;
-        abbrevs[predefinedAbbrev].abbrev = predefinedAbbrev;
+        let predefinedCommand = commands[predefined[predefinedAbbrev]];
+        if (!predefinedCommand) {
+            throw `Predefined command does not exist: ${predefined[predefinedAbbrev]}`
+        }
+        abbrevs[predefinedAbbrev] = predefinedCommand;
+        predefinedCommand.predefined = true;
+        predefinedCommand.abbrev = predefinedAbbrev;
     });
 
     // Sort commands in order to have shorter versions first. Otherwise this might fail ['signer', 'sign']
@@ -135,6 +156,10 @@ function createAbbrevs(commands, predefined) {
                         conflicts.push(potentialAbbrev);
                         delete abbrevs[potentialAbbrev];
                         delete commandObj.abbrev
+                        // TODO what to do if i === currentSubCommand.length - 1?
+                        // This will result in "No matching abbreviation found"
+                        // But just setting to competingCommand is not possible because what would be the abbrev for
+                        // competingCommand?
                     } else {
                         competingCommand = undefined
                     }
