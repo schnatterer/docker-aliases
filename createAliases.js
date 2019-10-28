@@ -119,11 +119,12 @@ function createAbbrevs(commands, predefined) {
     Object.keys(predefined).forEach(predefinedAbbrev => {
         let predefinedCommand = commands[predefined[predefinedAbbrev]];
         if (!predefinedCommand) {
-            throw `Predefined command does not exist: ${predefined[predefinedAbbrev]}`
+            console.error(`Predefined command does not exist: ${predefined[predefinedAbbrev]}`)
+        } else {
+            abbrevs[predefinedAbbrev] = predefinedCommand;
+            predefinedCommand.predefined = true;
+            predefinedCommand.abbrev = predefinedAbbrev;
         }
-        abbrevs[predefinedAbbrev] = predefinedCommand;
-        predefinedCommand.predefined = true;
-        predefinedCommand.abbrev = predefinedAbbrev;
     });
 
     // Sort commands in order to have shorter versions first. Otherwise this might fail ['signer', 'sign']
@@ -194,7 +195,7 @@ function createAbbrevs(commands, predefined) {
 }
 
 function updateAbbrev(abbrevs, abbrev, commandObj, commands) {
-    commandObj.subcommands.forEach( subCommand => {
+    commandObj.subcommands.forEach(subCommand => {
         const subCommandObj = commands[`${commandObj.cmdString} ${subCommand}`];
         if (!subCommandObj.abbrev) {
             console.error(`Subcommand does not have abbrev while updating: ${subCommandObj.cmdString}`)
