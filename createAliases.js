@@ -108,6 +108,9 @@ function createAbbrevs(commands, predefined) {
     // Sort commands in order to have shorter versions first. Otherwise this might fail ['signer', 'sign']
     Object.keys(commands).sort().forEach(absoluteCommand => {
         let commandObj = commands[absoluteCommand];
+        if (commandObj.predefined) {
+            return
+        }
         const currentSubCommand = commandObj.cmd;
         let competingCommand;
         for (let i = 0; i < currentSubCommand.length + 1; i++) {
@@ -123,7 +126,7 @@ function createAbbrevs(commands, predefined) {
                     if (!conflicts.includes(potentialAbbrev) ||
                         // Last char of this command. Pick it even though there are conflicts.
                         //Example: "builds" & "builder" are processed. Then "build" is processed.
-                        i === absoluteCommand.length - 1) {
+                        i === currentSubCommand.length - 1) {
                         setAbbrev(abbrevs, potentialAbbrev, commandObj);
                         break
                     }
