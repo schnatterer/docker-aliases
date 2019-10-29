@@ -12,7 +12,7 @@ const binaryAbbrev = binary.charAt(0);
 // Why? The algorithm creates compromises, e.g. stop vs. start results in dsto and dsta, no one get ds or dst
 // These predefineds are pretty much opinionated, trying to create shorter abbrevs for commands that are used more often
 // TODO use the same abbrevs also in nested commands, i.e. svc for docker services and docker stack services
-let predefinedAbbrevs = {
+let predefinedAbbrevCmds = {
     a: 'app',
     b: 'build',
     br: 'builder',
@@ -37,6 +37,11 @@ let predefinedAbbrevs = {
     sta: 'start',
     v: 'volume'
 };
+let predefinedAbbrevParams = {
+    bt: 'build -t',
+    rit: 'run -it',
+    rrmit: 'run --rm -it',
+};
 
 main();
 
@@ -56,8 +61,11 @@ function main() {
 
 function createPredefinedAbbrevs() {
     const prepended = {};
-    Object.keys(predefinedAbbrevs).forEach(abbrev => {
-        prepended[`${binaryAbbrev}${abbrev}`] = `${binary} ${predefinedAbbrevs[abbrev]}`
+    Object.keys(predefinedAbbrevCmds).forEach(abbrev => {
+        prepended[`${binaryAbbrev}${abbrev}`] = `${binary} ${predefinedAbbrevCmds[abbrev]}`
+    });
+    Object.keys(predefinedAbbrevParams).forEach(abbrev => {
+        prepended[`${binaryAbbrev}${abbrev}`] = `${binary} ${predefinedAbbrevParams[abbrev]}`
     });
     return prepended;
 }
@@ -113,13 +121,15 @@ function createAbbrevs(commands, predefined) {
     // dridPt dritdP dri ...
     //const permutations = createPermutations(params);
     // Only use sorted permutations, i.e. abc, ac, bc, c, b, a?
+    // Or use only one param? How to handle duplicates?
     const abbrevs = {};
     const conflicts = [];
 
     Object.keys(predefined).forEach(predefinedAbbrev => {
         let predefinedCommand = commands[predefined[predefinedAbbrev]];
         if (!predefinedCommand) {
-            throw `Predefined command does not exist: ${predefined[predefinedAbbrev]}`
+            // A parent is not needed for predefineds
+            predefinedCommand = {cmdString: predefined[predefinedAbbrev]};
         }
         abbrevs[predefinedAbbrev] = predefinedCommand;
         predefinedCommand.predefined = true;
@@ -159,7 +169,8 @@ function createAbbrevs(commands, predefined) {
                         // TODO what to do if i === currentSubCommand.length - 1?
                         // This will result in "No matching abbreviation found"
                         // But just setting to competingCommand is not possible because what would be the abbrev for
-                        // competingCommand?
+                        // competingCommand? Create a list of subcommands that need to be moved after this loop?
+                        // Could also be used for params.
                     } else {
                         competingCommand = undefined
                     }
