@@ -8,13 +8,11 @@ const binaryAbbrev = binary.charAt(0);
 // So use upper when only using 'D' but stick with lower for all other aliases because its faster to type
 const binaryAbbrevStandalone = 'D';
 
-
-// TODO cli var for skipping opinionated predefined aliases
-// Note that binary is added to abbrev an command automatically
-// e.g. b : build -> db : docker build
 // This contains a couple of commands that result in shorter abbreviations.
 // Why? The algorithm creates compromises, e.g. stop vs. start results in dsto and dsta, no one get ds or dst
-// These predefineds are pretty much opinionated, trying to create shorter abbrevs for commands that are used more often
+// These "predefineds" are pretty much opinionated, trying to create shorter abbrevs for commands that are frequently used
+// Note that binary is added to abbrev an command automatically
+// e.g. b : build -> db : docker build
 // TODO use the same abbrevs also in nested commands, i.e. svc for docker services and docker stack services
 let predefinedAbbrevCmds = {
     a: 'app',
@@ -40,12 +38,13 @@ let predefinedAbbrevCmds = {
     t: 'tag',
     sta: 'start',
 };
+
 // TODO search for more with e.g.
 // ➜ history| grep -E '^ *[0-9\w]*  docker ' | awk '{d = ""; for (f=2; f<=NF; ++f) {if ($f =="|") break; printf("%s%s", d, $f); d = OFS}; printf("\n") }' |sort|uniq -c|sort -rn | grep '\-' | less
 // Most frequent sub commands: history| grep -E '^ *[0-9\w]*  docker ' | awk '{print $2" "$3}' |awk 'BEGIN {FS="|"} {print $1}'|sort|uniq -c|sort -rn|head -30
 let predefinedAbbrevParams = {
+    rrm: 'run --rm',
     rrmd: 'run --rm -d',
-    rit: 'run -it',
     rrmit: 'run --rm -it',
 };
 
@@ -131,14 +130,6 @@ function createPermutations(array) {
 
 function createAbbrevs(commands, predefined) {
 
-    // TODO How to handle parameters?
-    //  All permutations, i.e. all parameters in all orders are way to many!
-    //  e.g. docker run -diPt
-    //  dridPt dritdP dri ...
-    //  const permutations = createPermutations(params);
-    //  Only use sorted permutations, i.e. abc, ac, bc, c, b, a?
-    //  Or use only one or two params in combination?
-    //  How to handle duplicates?
     const abbrevs = {};
     const conflicts = [];
 
@@ -230,21 +221,39 @@ function changeBinaryAbbrevStandalone(abbrevs) {
 }
 
 function addParamAbbrevs(abbrevs) {
+
+    // For now add params after the commands' abbrevs have been created.
+    // That is, commands' aliases take precedence.
+
+    //  All permutations, i.e. all parameters in all orders are way to many!
+    //  e.g. docker run -diPt
+    //  dridPt dritdP dri ...
+
+    // So for now, create only aliases with two parameters within an alias
+
     Object.keys(abbrevs).sort().forEach(abbrev => {
         const abbrevObj = abbrevs[abbrev];
-
-        if (abbrevObj.params) {
-            abbrevObj.params.forEach(param => {
-                const paramAbbrev = `${abbrevObj.abbrev}${param}`;
-                const paramCmdString = `${abbrevObj.cmdString} -${param}`;
-                if (abbrevs[paramAbbrev]) {
-                    console.error(`Parameter results in duplicate abbrev - ignoring: alias ${paramAbbrev}='${paramCmdString}' - conflicts with alias ${abbrevs[paramAbbrev].abbrev}='${abbrevs[paramAbbrev].cmdString}'`)
-                } else {
-                    abbrevs[paramAbbrev] = { parent: abbrevObj, abbrev: paramAbbrev, cmdString: paramCmdString };
-                }
-            });
-        }
+            addParamAbbrevsForCmd(abbrevs, abbrevObj.params, abbrevObj, abbrevObj.abbrev, abbrevObj.cmdString);
     });
+}
+
+function addParamAbbrevsForCmd(abbrevs, params, parent, baseAbbrev, baseCmd, withMinus = true) {
+    if (params) {
+        params.sort().forEach(param => {
+            const paramAbbrev = `${baseAbbrev}${param}`;
+            const paramCmdString = `${baseCmd}${withMinus? ' -' : ''}${param}`;
+            if (abbrevs[paramAbbrev]) {
+                console.error(`Parameter results in duplicate abbrev - ignoring: alias ${paramAbbrev}='${paramCmdString}' - conflicts with alias ${abbrevs[paramAbbrev].abbrev}='${abbrevs[paramAbbrev].cmdString}'`)
+            } else {
+                abbrevs[paramAbbrev] = {parent: parent, abbrev: paramAbbrev, cmdString: paramCmdString};
+                // Recurse into all other parameters, that follow alphabetically after this one
+                let allParamsAfterThisOne = params.slice(params.indexOf(param) + 1);
+                allParamsAfterThisOne.forEach( paramAfterThisOne => {
+                    addParamAbbrevsForCmd(abbrevs, [paramAfterThisOne], parent, paramAbbrev, paramCmdString, false)
+                });
+            }
+        });
+    }
 }
 
 function updateAbbrev(abbrevs, abbrev, commandObj, commands) {
@@ -303,17 +312,20 @@ function findCommands(stdoutLines) {
             afterCommandsLine = true
         }
     });
-    let commands = commandLines.map(subCommand => subCommand.replace(/ *(\w-*)\** .*/, "$1").trim());
-    return commands;
+    return commandLines.map(subCommand => subCommand.replace(/ *(\w-*)\** .*/, "$1").trim());
 }
 
 function findParams(stdoutLines) {
     // Match only boolean args (for now) - maybe in future: find also non-booleans and create one permutation for each with this params at the end?
     //let params = commands.filter(command => /--[^ ]*  /.test(command));
     // Match only boolean args with a single param (for now) - maybe in future find a way to support, e.g. --rm as well
+
+    // TODO this also matches non-boolean parameters like docker build -t
+    // While this is valuable, we should make sure that
+    // - no aliases of two non bool params are aliases (like docker build -ft)
+    // - the non boolean is always at the end (like docker build -qt)
     let params = stdoutLines.filter(stdoutLine => /^ *-\w,/.test(stdoutLine));
-    let abbrevs = params.map(param => param.replace(/-(\w).*/, "$1").trim());
-    return abbrevs;
+    return params.map(param => param.replace(/-(\w).*/, "$1").trim());
 }
 
 function printAliases(commandAliases) {
