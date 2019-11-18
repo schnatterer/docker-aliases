@@ -2,8 +2,11 @@ const exec = require('child-process-promise').exec;
 
 // TODO provide CLI option for overriding (e.g. for podman) and use throughout app
 const envVars = 'DOCKER_CLI_EXPERIMENTAL=enabled';
+// TODO define alias for docker. "D"?
+// "d" already taken https://github.com/robbyrussell/oh-my-zsh/blob/master/lib/directories.zsh
 const binary = 'docker';
 const binaryAbbrev = binary.charAt(0);
+
 
 // TODO cli var for skipping opinionated predefined aliases
 // Note that binary is added to abbrev an command automatically
@@ -37,8 +40,14 @@ let predefinedAbbrevCmds = {
     sta: 'start',
     v: 'volume'
 };
+// TODO search for more with e.g.
+// ➜ history| grep -E '^ *[0-9\w]*  docker ' | awk '{d = ""; for (f=2; f<=NF; ++f) {if ($f =="|") break; printf("%s%s", d, $f); d = OFS}; printf("\n") }' |sort|uniq -c|sort -rn | grep '\-' | less
+// Most frequent sub commands: history| grep -E '^ *[0-9\w]*  docker ' | awk '{print $2" "$3}' |awk 'BEGIN {FS="|"} {print $1}'|sort|uniq -c|sort -rn|head -30
 let predefinedAbbrevParams = {
     bt: 'build -t',
+    psa: 'ps -a',
+    rd: 'run -d',
+    rrmd: 'run --rm -d',
     rit: 'run -it',
     rrmit: 'run --rm -it',
 };
@@ -62,12 +71,21 @@ function main() {
 function createPredefinedAbbrevs() {
     const prepended = {};
     Object.keys(predefinedAbbrevCmds).forEach(abbrev => {
-        prepended[`${binaryAbbrev}${abbrev}`] = `${binary} ${predefinedAbbrevCmds[abbrev]}`
+        addPredefinedAbbrev(predefinedAbbrevCmds, abbrev, prepended);
     });
     Object.keys(predefinedAbbrevParams).forEach(abbrev => {
-        prepended[`${binaryAbbrev}${abbrev}`] = `${binary} ${predefinedAbbrevParams[abbrev]}`
+        addPredefinedAbbrev(predefinedAbbrevParams, abbrev, prepended);
     });
     return prepended;
+}
+
+function addPredefinedAbbrev(abbrevs, abbrev, prepended) {
+    let prependedAbbrev = `${binaryAbbrev}${abbrev}`;
+    let prependedCmdString = `${binary} ${abbrevs[abbrev]}`;
+    if (prepended[prependedAbbrev]) {
+        throw `Duplicate predefined abbrev: ${prependedAbbrev} - '${prepended[prependedAbbrev]}' and '${prependedCmdString}'`
+    }
+    prepended[prependedAbbrev] = prependedCmdString;
 }
 
 function parseCommands(command, parent, currentResult) {
@@ -117,11 +135,12 @@ function createAbbrevs(commands, predefined) {
 
     // TODO How to handle parameters?
     //  All permutations, i.e. all parameters in all orders are way to many!
-    // e.g. docker run -diPt
-    // dridPt dritdP dri ...
-    //const permutations = createPermutations(params);
-    // Only use sorted permutations, i.e. abc, ac, bc, c, b, a?
-    // Or use only one param? How to handle duplicates?
+    //  e.g. docker run -diPt
+    //  dridPt dritdP dri ...
+    //  const permutations = createPermutations(params);
+    //  Only use sorted permutations, i.e. abc, ac, bc, c, b, a?
+    //  Or use only one or two params in combination?
+    //  How to handle duplicates?
     const abbrevs = {};
     const conflicts = [];
 
