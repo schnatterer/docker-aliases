@@ -39,15 +39,11 @@ let predefinedAbbrevCmds = {
     st: 'stack',
     t: 'tag',
     sta: 'start',
-    v: 'volume'
 };
 // TODO search for more with e.g.
 // ➜ history| grep -E '^ *[0-9\w]*  docker ' | awk '{d = ""; for (f=2; f<=NF; ++f) {if ($f =="|") break; printf("%s%s", d, $f); d = OFS}; printf("\n") }' |sort|uniq -c|sort -rn | grep '\-' | less
 // Most frequent sub commands: history| grep -E '^ *[0-9\w]*  docker ' | awk '{print $2" "$3}' |awk 'BEGIN {FS="|"} {print $1}'|sort|uniq -c|sort -rn|head -30
 let predefinedAbbrevParams = {
-    bt: 'build -t',
-    psa: 'ps -a',
-    rd: 'run -d',
     rrmd: 'run --rm -d',
     rit: 'run -it',
     rrmit: 'run --rm -it',
@@ -222,6 +218,7 @@ function createAbbrevs(commands, predefined) {
             }
         }
     });
+    addParamAbbrevs(abbrevs);
     changeBinaryAbbrevStandalone(abbrevs);
     return sortObjectToArray(abbrevs)
 }
@@ -230,6 +227,24 @@ function changeBinaryAbbrevStandalone(abbrevs) {
     abbrevs[binaryAbbrevStandalone] = abbrevs[binaryAbbrev];
     delete abbrevs[binaryAbbrev];
     abbrevs[binaryAbbrevStandalone].abbrev = binaryAbbrevStandalone;
+}
+
+function addParamAbbrevs(abbrevs) {
+    Object.keys(abbrevs).sort().forEach(abbrev => {
+        const abbrevObj = abbrevs[abbrev];
+
+        if (abbrevObj.params) {
+            abbrevObj.params.forEach(param => {
+                const paramAbbrev = `${abbrevObj.abbrev}${param}`;
+                const paramCmdString = `${abbrevObj.cmdString} -${param}`;
+                if (abbrevs[paramAbbrev]) {
+                    console.error(`Parameter results in duplicate abbrev - ignoring: alias ${paramAbbrev}='${paramCmdString}' - conflicts with alias ${abbrevs[paramAbbrev].abbrev}='${abbrevs[paramAbbrev].cmdString}'`)
+                } else {
+                    abbrevs[paramAbbrev] = { parent: abbrevObj, abbrev: paramAbbrev, cmdString: paramCmdString };
+                }
+            });
+        }
+    });
 }
 
 function updateAbbrev(abbrevs, abbrev, commandObj, commands) {
