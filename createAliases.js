@@ -2,10 +2,11 @@ const exec = require('child-process-promise').exec;
 
 // TODO provide CLI option for overriding (e.g. for podman) and use throughout app
 const envVars = 'DOCKER_CLI_EXPERIMENTAL=enabled';
-// TODO define alias for docker. "D"?
-// "d" already taken https://github.com/robbyrussell/oh-my-zsh/blob/master/lib/directories.zsh
 const binary = 'docker';
 const binaryAbbrev = binary.charAt(0);
+// "alias d" already taken https://github.com/robbyrussell/oh-my-zsh/blob/master/lib/directories.zsh
+// So use upper when only using 'D' but stick with lower for all other aliases because its faster to type
+const binaryAbbrevStandalone = 'D';
 
 
 // TODO cli var for skipping opinionated predefined aliases
@@ -76,6 +77,7 @@ function createPredefinedAbbrevs() {
     Object.keys(predefinedAbbrevParams).forEach(abbrev => {
         addPredefinedAbbrev(predefinedAbbrevParams, abbrev, prepended);
     });
+
     return prepended;
 }
 
@@ -220,11 +222,18 @@ function createAbbrevs(commands, predefined) {
             }
         }
     });
+    changeBinaryAbbrevStandalone(abbrevs);
     return sortObjectToArray(abbrevs)
 }
 
+function changeBinaryAbbrevStandalone(abbrevs) {
+    abbrevs[binaryAbbrevStandalone] = abbrevs[binaryAbbrev];
+    delete abbrevs[binaryAbbrev];
+    abbrevs[binaryAbbrevStandalone].abbrev = binaryAbbrevStandalone;
+}
+
 function updateAbbrev(abbrevs, abbrev, commandObj, commands) {
-    commandObj.subcommands.forEach( subCommand => {
+    commandObj.subcommands.forEach(subCommand => {
         const subCommandObj = commands[`${commandObj.cmdString} ${subCommand}`];
         if (!subCommandObj.abbrev) {
             console.error(`Subcommand does not have abbrev while updating: ${subCommandObj.cmdString}`)
