@@ -239,16 +239,27 @@ function addParamAbbrevs(abbrevs) {
 
 function addParamAbbrevsForCmd(abbrevs, params, parent, baseAbbrev, baseCmd, withMinus = true) {
     if (params) {
-        params.sort().forEach(param => {
-            const paramAbbrev = `${baseAbbrev}${param}`;
-            const paramCmdString = `${baseCmd}${withMinus? ' -' : ''}${param}`;
-            if (abbrevs[paramAbbrev]) {
-                console.error(`Parameter results in duplicate abbrev - ignoring: alias ${paramAbbrev}='${paramCmdString}' - conflicts with alias ${abbrevs[paramAbbrev].abbrev}='${abbrevs[paramAbbrev].cmdString}'`)
-            } else {
-                abbrevs[paramAbbrev] = {parent: parent, abbrev: paramAbbrev, cmdString: paramCmdString};
+        params.forEach(param => {
+
+            // Match only params with a one char abbreviation param (for now)
+            // - maybe in future find a way to support, e.g. --rm as well
+            // Idea: Use long params with up to 2 or 3 chars?
+            if (param.shortParam) {
+                const paramAbbrev = `${baseAbbrev}${param.shortParam}`;
+                const paramCmdString = `${baseCmd}${withMinus ? ' -' : ''}${param.shortParam}`;
+                if (abbrevs[paramAbbrev]) {
+                    console.error(`Parameter results in duplicate abbrev - ignoring: alias ${paramAbbrev}='${paramCmdString}' - conflicts with alias ${abbrevs[paramAbbrev].abbrev}='${abbrevs[paramAbbrev].cmdString}'`)
+                } else {
+                    abbrevs[paramAbbrev] = {parent: parent, abbrev: paramAbbrev, cmdString: paramCmdString};
+                }
                 // Recurse into all other parameters, that follow alphabetically after this one
+
+                // TODO properly handle non-boolean parameters like docker build -t
+                // - no aliases of two non-bool params are aliases (like docker build -ft)
+                // - the non boolean is always at the end (like docker build -qt)
+                // !param.arg -> boolean
                 let allParamsAfterThisOne = params.slice(params.indexOf(param) + 1);
-                allParamsAfterThisOne.forEach( paramAfterThisOne => {
+                allParamsAfterThisOne.forEach(paramAfterThisOne => {
                     addParamAbbrevsForCmd(abbrevs, [paramAfterThisOne], parent, paramAbbrev, paramCmdString, false)
                 });
             }
@@ -316,16 +327,29 @@ function findCommands(stdoutLines) {
 }
 
 function findParams(stdoutLines) {
-    // Match only boolean args (for now) - maybe in future: find also non-booleans and create one permutation for each with this params at the end?
-    //let params = commands.filter(command => /--[^ ]*  /.test(command));
-    // Match only boolean args with a single param (for now) - maybe in future find a way to support, e.g. --rm as well
-
-    // TODO this also matches non-boolean parameters like docker build -t
-    // While this is valuable, we should make sure that
-    // - no aliases of two non bool params are aliases (like docker build -ft)
-    // - the non boolean is always at the end (like docker build -qt)
-    let params = stdoutLines.filter(stdoutLine => /^ *-\w,/.test(stdoutLine));
-    return params.map(param => param.replace(/-(\w).*/, "$1").trim());
+    let params = stdoutLines.filter(stdoutLine => /^ +-{1,2}\w*/.test(stdoutLine));
+    let paramObjs = params.map(param => {
+        const matchesShortParam = /-(\w), --([\w-]*) (\w*).*/.exec(param);
+        if (matchesShortParam === null) {
+            const matchesLongParam = /--([\w-]*) (\w*).*/.exec(param);
+            if (matchesLongParam === null) {
+                throw `Param parsing failed for param: ${param}`;
+            }
+            return {longParam: matchesLongParam[1], arg: matchesLongParam[2]}
+        } else {
+            return {shortParam: matchesShortParam[1], longParam: matchesShortParam[2], arg: matchesShortParam[3]}
+        }
+    });
+    // Sort alphabetically to get defined order
+    return paramObjs.sort((a, b) => {
+        if (a.longParam < b.longParam) {
+            return -1;
+        }
+        if (a.longParam > b.longParam) {
+            return 1;
+        }
+        return 0;
+    })
 }
 
 function printAliases(commandAliases) {
