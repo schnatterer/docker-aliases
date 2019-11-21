@@ -211,7 +211,8 @@ function createAbbrevs(commands, predefined) {
     });
     addParamAbbrevs(abbrevs);
     changeBinaryAbbrevStandalone(abbrevs);
-    return sortObjectToArray(abbrevs)
+    // Sorting by cmd instead of abbrev make comparing alias results easier after changes
+    return sortByCmdStringToArray(abbrevs)
 }
 
 function changeBinaryAbbrevStandalone(abbrevs) {
@@ -243,7 +244,10 @@ function addParamAbbrevsForCmd(abbrevs, params, parent, baseAbbrev, baseCmd, wit
 
             // Match only params with a one char abbreviation param (for now)
             // - maybe in future find a way to support, e.g. --rm as well
-            // Idea: Use long params with up to 2 or 3 chars?
+            // TODO Idea: Use long params with up to 2 or 3 chars?
+            // What about sort order? E.g. plain alphabetical would be harder to remember
+            // e.g. 'docker run -it --rm' - 'drirmt' unintuitive?! 'dritrm' would be easier but 'drrmit' would more fun in this case :D
+            // Maybe short parms first? Or Last?
             if (param.shortParam) {
                 const paramAbbrev = `${baseAbbrev}${param.shortParam}`;
                 const paramCmdString = `${baseCmd}${withMinus ? ' -' : ''}${param.shortParam}`;
@@ -290,22 +294,16 @@ function setAbbrev(abbrevs, abbrev, commandObj) {
     abbrevs[abbrev] = commandObj;
 }
 
-function sortObjectToArray(o) {
-    let sorted = [],
-        key, a = [];
-
-    for (key in o) {
-        if (o.hasOwnProperty(key)) {
-            a.push(key);
+function sortByCmdStringToArray(abbrevs) {
+    return Object.values(abbrevs).sort((a, b) => {
+        if (a.cmdString < b.cmdString) {
+            return -1;
         }
-    }
-
-    a.sort();
-
-    for (key = 0; key < a.length; key++) {
-        sorted.push(o[a[key]]);
-    }
-    return sorted;
+        if (a.cmdString > b.cmdString) {
+            return 1;
+        }
+        return 0;
+    });
 }
 
 function findCommands(stdoutLines) {
