@@ -1,7 +1,7 @@
-FROM node:10.16.3-alpine as node
+FROM node:12.13.0-alpine3.10 as node
 
 FROM node as builder
-ARG DOCKER_VERSION=19.03.2
+ARG DOCKER_VERSION=19.03.5
 RUN mkdir /dist
 
 WORKDIR /work
@@ -15,8 +15,7 @@ COPY yarn.lock .
 RUN yarn install
 RUN mv node_modules /dist
 
-COPY createAliases.js .
-RUN mv createAliases.js /dist
+COPY createAliases.js /dist
 
 
 FROM node
