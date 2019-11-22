@@ -8,6 +8,14 @@ const binaryAbbrev = binary.charAt(0);
 // So use upper when only using 'D' but stick with lower for all other aliases because its faster to type
 const binaryAbbrevStandalone = 'D';
 
+//  All permutations, i.e. all parameters in all orders are way to many
+//  e.g. docker run -diPt
+//  dridPt dritdP dri ...
+// Fist Simplification: Use alphabetical order without duplicates, e.g abc, ab, ac, bc; but not ba, cba, etct.
+// This still results in about 50.000 abbrevs for shortParams only!
+// So, limit number of params per command (recursion depth)
+const numberOfMaxParamsPerAlias = 2;
+
 // This contains a couple of commands that result in shorter abbreviations.
 // Why? The algorithm creates compromises, e.g. stop vs. start results in dsto and dsta, no one get ds or dst
 // These "predefineds" are pretty much opinionated, trying to create shorter abbrevs for commands that are frequently used
@@ -223,52 +231,61 @@ function changeBinaryAbbrevStandalone(abbrevs) {
 
 function addParamAbbrevs(abbrevs) {
 
-    // For now add params after the commands' abbrevs have been created.
+    // Add params after the commands' abbrevs have been created.
     // That is, commands' aliases take precedence.
 
-    //  All permutations, i.e. all parameters in all orders are way to many!
-    //  e.g. docker run -diPt
-    //  dridPt dritdP dri ...
-
-    // So for now, create only aliases with two parameters within an alias
-
+    let potentialParamAbbrevs = [];
     Object.keys(abbrevs).sort().forEach(abbrev => {
         const abbrevObj = abbrevs[abbrev];
-            addParamAbbrevsForCmd(abbrevs, abbrevObj.params, abbrevObj, abbrevObj.abbrev, abbrevObj.cmdString);
+        createPotentialParamAbbrevs(abbrevObj, abbrevObj.params, potentialParamAbbrevs)
     });
+    addValidParamAbbrevs(abbrevs, potentialParamAbbrevs);
 }
 
-function addParamAbbrevsForCmd(abbrevs, params, parent, baseAbbrev, baseCmd, withMinus = true) {
-    if (params) {
+function createPotentialParamAbbrevs(cmd, params, paramAbbrevs = [], previousParams = []) {
+
+    if (params && previousParams.length <= numberOfMaxParamsPerAlias - 1) {
         params.forEach(param => {
 
-            // Match only params with a one char abbreviation param (for now)
-            // - maybe in future find a way to support, e.g. --rm as well
+            // Maybe in future find a way to support long params, e.g. --rm as well
             // TODO Idea: Use long params with up to 2 or 3 chars?
             // What about sort order? E.g. plain alphabetical would be harder to remember
             // e.g. 'docker run -it --rm' - 'drirmt' unintuitive?! 'dritrm' would be easier but 'drrmit' would more fun in this case :D
-            // Maybe short parms first? Or Last?
-            if (param.shortParam) {
-                const paramAbbrev = `${baseAbbrev}${param.shortParam}`;
-                const paramCmdString = `${baseCmd}${withMinus ? ' -' : ''}${param.shortParam}`;
-                if (abbrevs[paramAbbrev]) {
-                    console.error(`Parameter results in duplicate abbrev - ignoring: alias ${paramAbbrev}='${paramCmdString}' - conflicts with alias ${abbrevs[paramAbbrev].abbrev}='${abbrevs[paramAbbrev].cmdString}'`)
-                } else {
-                    abbrevs[paramAbbrev] = {parent: parent, abbrev: paramAbbrev, cmdString: paramCmdString};
-                }
-                // Recurse into all other parameters, that follow alphabetically after this one
+            // Maybe short parms first? Or Last? Implement in addValidParamAbbrevs()
 
-                // TODO properly handle non-boolean parameters like docker build -t
-                // - no aliases of two non-bool params are aliases (like docker build -ft)
-                // - the non boolean is always at the end (like docker build -qt)
-                // !param.arg -> boolean
-                let allParamsAfterThisOne = params.slice(params.indexOf(param) + 1);
-                allParamsAfterThisOne.forEach(paramAfterThisOne => {
-                    addParamAbbrevsForCmd(abbrevs, [paramAfterThisOne], parent, paramAbbrev, paramCmdString, false)
-                });
+            // TODO Further idea: add abbrevs for sub commands. e.g. --entrypoint -> ep
+            if (param.shortParam) {
+                paramAbbrevs.push({cmd: cmd, params: previousParams.concat(param)});
+                // Recurse into all other parameters, that follow alphabetically after this one
+                let allParamsAfterThisOne = cmd.params.slice(cmd.params.indexOf(param) + 1);
+                createPotentialParamAbbrevs(cmd, allParamsAfterThisOne, paramAbbrevs, previousParams.concat(param))
             }
         });
     }
+}
+
+function addValidParamAbbrevs(abbrevs, potentialParamAbbrev) {
+    potentialParamAbbrev.forEach(paramToAbbrev => {
+
+        // TODO properly handle non-boolean parameters like docker build -t
+        // - no aliases of two non-bool params are aliases (like docker build -ft)
+        // - the non boolean is always at the end (like docker build -qt)
+        // !param.arg -> boolean
+
+        let paramAbbrev = paramToAbbrev.cmd.abbrev;
+        let paramCmdString = `${paramToAbbrev.cmd.cmdString} -`;
+        paramToAbbrev.params.forEach(param => {
+            paramAbbrev += param.shortParam;
+            paramCmdString += param.shortParam;
+        });
+
+        if (abbrevs[paramAbbrev]) {
+            // TODO how to handle those?
+            console.error(`Parameter results in duplicate abbrev - ignoring: alias ${paramAbbrev}='${paramCmdString}' - conflicts with alias ${abbrevs[paramAbbrev].abbrev}='${abbrevs[paramAbbrev].cmdString}'`)
+        } else {
+            abbrevs[paramAbbrev] = {parent: paramToAbbrev.cmd, abbrev: paramAbbrev, cmdString: paramCmdString};
+        }
+    });
 }
 
 function updateAbbrev(abbrevs, abbrev, commandObj, commands) {
