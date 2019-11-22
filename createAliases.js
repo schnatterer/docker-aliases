@@ -122,23 +122,6 @@ function parseCommands(command, parent, currentResult) {
         })
 }
 
-function createPermutations(array) {
-    let ret = [];
-
-    for (let i = 0; i < array.length; i = i + 1) {
-        let rest = createPermutations(array.slice(0, i).concat(array.slice(i + 1)));
-
-        if (!rest.length) {
-            ret.push(array[i])
-        } else {
-            for (let j = 0; j < rest.length; j = j + 1) {
-                ret.push(array[i] + rest[j])
-            }
-        }
-    }
-    return ret;
-}
-
 function createAbbrevs(commands, predefined) {
 
     const abbrevs = {};
