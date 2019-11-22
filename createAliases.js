@@ -56,6 +56,9 @@ let predefinedAbbrevParams = {
     rrmit: 'run --rm -it',
 };
 
+// TODO exclude aliases to exclude because they make no sense semantically. Cant be automated.
+// "docker run -dit"; "docker -v with other commands"
+
 main();
 
 function main() {
@@ -267,20 +270,28 @@ function createPotentialParamAbbrevs(cmd, params, paramAbbrevs = [], previousPar
 function addValidParamAbbrevs(abbrevs, potentialParamAbbrev) {
     potentialParamAbbrev.forEach(paramToAbbrev => {
 
-        // TODO properly handle non-boolean parameters like docker build -t
-        // - the non boolean is always at the end (like docker build -qt)
-        // !param.arg -> boolean
-
-        if (paramToAbbrev.params.filter(param => param.arg).length > 1) {
+        const nonBooleanParams = paramToAbbrev.params.filter(param => param.arg);
+        if (nonBooleanParams.length > 1) {
             // This combination of param is invalid for an alias, as there are is more than on param requiring an arg
             return
         }
+        const nonBooleanParam = nonBooleanParams.length > 0 ? nonBooleanParams[0] : undefined;
+
         let paramAbbrev = paramToAbbrev.cmd.abbrev;
         let paramCmdString = `${paramToAbbrev.cmd.cmdString} -`;
         paramToAbbrev.params.forEach(param => {
+            if (param === nonBooleanParam) {
+                // Param that expects an argument must be at the end
+                return
+            }
             paramAbbrev += param.shortParam;
             paramCmdString += param.shortParam;
         });
+
+        if (nonBooleanParam) {
+            paramAbbrev += nonBooleanParam.shortParam;
+            paramCmdString += nonBooleanParam.shortParam;
+        }
 
         if (abbrevs[paramAbbrev]) {
             // TODO how to handle those?
