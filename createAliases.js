@@ -14,7 +14,7 @@ const binaryAbbrevStandalone = 'D';
 // Fist Simplification: Use alphabetical order without duplicates, e.g abc, ab, ac, bc; but not ba, cba, etct.
 // This still results in about 50.000 abbrevs for shortParams only!
 // So, limit number of params per command (recursion depth)
-const numberOfMaxParamsPerAlias = 2;
+const numberOfMaxParamsPerAlias = 3;
 
 // This contains a couple of commands that result in shorter abbreviations.
 // Why? The algorithm creates compromises, e.g. stop vs. start results in dsto and dsta, no one get ds or dst
