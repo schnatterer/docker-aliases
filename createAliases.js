@@ -268,10 +268,13 @@ function addValidParamAbbrevs(abbrevs, potentialParamAbbrev) {
     potentialParamAbbrev.forEach(paramToAbbrev => {
 
         // TODO properly handle non-boolean parameters like docker build -t
-        // - no aliases of two non-bool params are aliases (like docker build -ft)
         // - the non boolean is always at the end (like docker build -qt)
         // !param.arg -> boolean
 
+        if (paramToAbbrev.params.filter(param => param.arg).length > 1) {
+            // This combination of param is invalid for an alias, as there are is more than on param requiring an arg
+            return
+        }
         let paramAbbrev = paramToAbbrev.cmd.abbrev;
         let paramCmdString = `${paramToAbbrev.cmd.cmdString} -`;
         paramToAbbrev.params.forEach(param => {
