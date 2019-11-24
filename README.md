@@ -29,19 +29,50 @@ Pro tip: grep the `alias` command, e.g like so:
 alias | grep 'docker run'
 ```
 
-### Parameters
+### Parameters in aliase
 
-* Are generally in alphabetical order, except parameters require an argument (like `docker build -t`) are always at the 
-  end (otherwise the the command would not be syntactically correct)
-* For now only there are only aliases containing containing at max three parameters with single character abbreviation
+Are implemented by the following rules
+
+* At max 3 parameters within one alias 
+* At max one non-boolean parameter per alias (must be at the end because of argument)
+* Parameters without single character abbreviation (starting in `--`, e.g. `--rm`) are only contained in alias if 
+  * the parameter has less than three chars
+  * has a predefined abbreviation (coming soon)
+  * contains a hyphen (is then abbreviated `<first char><first char after hyphen`, e.g. `--log-level` = `ll`) (coming soon)
+* Order of parameters in alias
+  * Parameters without single character abbreviation go first,
+  * followed by the single character parameters (e.g. `-t`),
+  * The boolean parameter is always at the end  
+    (otherwise the the command would not be syntactically correct).
+  * If multiple Parameters without single character abbreviation or single char params the order is always alphabetical,  
+    i.e  params `a`, `b` and `c` -> `ab`, `ac`, `abc`, `bc`. Not `ba`, `ca`, etc.  
+    Otherwise there would be way to many aliases.
 
 ### Prominent examples
 
 ```bash
 dpsa # docker ps -a
 drit nginx # docker run -it
+drrmd nginx #run --rm -d'
+drrmit nginx # docker run --rm -it
 dexit container sh # docker exec -it container sh
 ```
+
+## Aliases missing?
+
+* Could be because of conflicts, see TODOs at the end
+* Contributions welcome, create an issue or PR.
+
+What are your most used abbrevs? Is one of them missing in the aliases?
+Ask your shell history:
+
+```bash
+# Most frequent docker commands
+history| grep -E '^ *[0-9\w]*  docker ' | awk '{d = ""; for (f=2; f<=NF; ++f) {if ($f =="|") break; printf("%s%s", d, $f); d = OFS}; printf("\n") }' |sort|uniq -c|sort -rn | grep '\-' | less
+# Most frequent sub commands: 
+history| grep -E '^ *[0-9\w]*  docker ' | awk '{print $2" "$3}' |awk 'BEGIN {FS="|"} {print $1}'|sort|uniq -c|sort -rn|head -30
+``` 
+
 
 ## Implementation Details
 
@@ -68,7 +99,7 @@ Adding parameters per sub command is surprisingly complex, though:
 So for now the pragmatic solution is as follows:
 * Use only params that have a single char abbreviation
 * Don't create all permutations of all params of each sub command, but only in alphabetical order,   
-  e.g. params `a`, `b` and `c` -> `ab`, `ac`, `bc`. Not `ba`, `ca`, etc.
+  e.g. params `a`, `b` and `c` -> `ab`, `ac`, `abc`, `bc`. Not `ba`, `ca`, etc.
 * Create only aliases containing at max 3 params.  
 * In addition, some parameters are defined manually that also can be longer.
 * Conflicts are not resolved. Sub commands take precedence, param abbreviations conflicting with sub commands are ignored.  
@@ -80,6 +111,7 @@ Here are some numbers (docker `19.03.4-rc1`):
 * sub commands and at max two boolean param per alias (not all permutations but alphabetical) - 1000 aliases (8cd17435)
 
 ### Error handling and logging
+
 As the result is printed on stdout, all technical output is printed on stderr. That is, info and errors. 
 Don't try this at home 😬.
 
@@ -95,3 +127,14 @@ Therefore a "golden master" testing approach was more effective here:
 Create aliases, implement change, diff with previous aliases.
 Once the implemented approach is proven, a lot of refactoring should be done. This time using TDD, validating against 
 the golden master.
+
+### Potential new features / ideas / TODOs
+
+* How to properly handle parameter conflicts? 
+  * For short params there is no conflict resolution.
+  * In conflicts with subcommands the params could take precedence. But make all maybe 100 aliases of a subcommand longer 
+    because of one param alias?  
+* provide CLI option for overriding (e.g. for podman) and use throughout app
+* predefinedAbbrevCmds - use the same abbrevs also in nested commands, i.e. svc for docker services and docker stack services
+
+

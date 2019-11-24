@@ -1,6 +1,5 @@
 const exec = require('child-process-promise').exec;
 
-// TODO provide CLI option for overriding (e.g. for podman) and use throughout app
 const envVars = 'DOCKER_CLI_EXPERIMENTAL=enabled';
 const binary = 'docker';
 const binaryAbbrev = binary.charAt(0);
@@ -25,7 +24,6 @@ const numberOfCharsOfLongParamsToUseAsAlias = 2;
 // These "predefineds" are pretty much opinionated, trying to create shorter abbrevs for commands that are frequently used
 // Note that binary is added to abbrev an command automatically
 // e.g. b : build -> db : docker build
-// TODO use the same abbrevs also in nested commands, i.e. svc for docker services and docker stack services
 let predefinedAbbrevCmds = {
     a: 'app',
     b: 'build',
@@ -51,9 +49,7 @@ let predefinedAbbrevCmds = {
     sta: 'start',
 };
 
-// TODO search for more with e.g.
-// ➜ history| grep -E '^ *[0-9\w]*  docker ' | awk '{d = ""; for (f=2; f<=NF; ++f) {if ($f =="|") break; printf("%s%s", d, $f); d = OFS}; printf("\n") }' |sort|uniq -c|sort -rn | grep '\-' | less
-// Most frequent sub commands: history| grep -E '^ *[0-9\w]*  docker ' | awk '{print $2" "$3}' |awk 'BEGIN {FS="|"} {print $1}'|sort|uniq -c|sort -rn|head -30
+// E.g.: rrm: 'run --rm'
 let predefinedAbbrevParams = {
 };
 
