@@ -65,8 +65,13 @@ dexit container sh # docker exec -it container sh
 * Could be because of conflicts, see TODOs at the end
 * Contributions welcome, create an issue or PR.
 
-What are your most used abbrevs? Is one of them missing in the aliases?
-Ask your shell history:
+## Contribute
+
+Contributions welcome!
+
+* Are there aliases missing you use often?
+* What are your most used abbrevs? Is one of them missing in the aliases?
+  Ask your shell history:
 
 ```bash
 # Most frequent docker commands

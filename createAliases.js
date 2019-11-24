@@ -57,9 +57,6 @@ const longParamAbbrevs = {
     entrypoint : 'ep'
 };
 
-// TODO exclude aliases to exclude because they make no sense semantically. Cant be automated.
-// "docker run -dit"; "docker -v with other commands"
-
 main();
 
 function main() {
