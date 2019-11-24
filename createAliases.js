@@ -53,6 +53,10 @@ let predefinedAbbrevCmds = {
 let predefinedAbbrevParams = {
 };
 
+const longParamAbbrevs = {
+    entrypoint : 'ep'
+};
+
 // TODO exclude aliases to exclude because they make no sense semantically. Cant be automated.
 // "docker run -dit"; "docker -v with other commands"
 
@@ -225,14 +229,25 @@ function addParamAbbrevs(abbrevs) {
     addValidParamAbbrevs(abbrevs, potentialParamAbbrevs);
 }
 
+function addLongParamAbbrev(param) {
+    // TODO even further: Create abbreviations for longParams containing hyphen (log-level -> ll)
+    if (longParamAbbrevs[param.longParam]) {
+        param.longParamAbbrev = longParamAbbrevs[param.longParam];
+    }
+}
+
 function createPotentialParamAbbrevs(cmd, params, paramAbbrevs = [], previousParams = []) {
 
     if (params && previousParams.length <= numberOfMaxParamsPerAlias - 1) {
         params.forEach(param => {
 
-            // TODO Further idea: add abbrevs for sub commands. e.g. --entrypoint -> ep
-            if (param.shortParam || param.longParam.length <= numberOfCharsOfLongParamsToUseAsAlias) {
+            addLongParamAbbrev(param);
+
+            if (param.shortParam || param.longParamAbbrev ||
+                param.longParam.length <= numberOfCharsOfLongParamsToUseAsAlias) {
+
                 paramAbbrevs.push({cmd: cmd, params: previousParams.concat(param)});
+
                 // Recurse into all other parameters, that follow alphabetically after this one
                 let allParamsAfterThisOne = cmd.params.slice(cmd.params.indexOf(param) + 1);
                 createPotentialParamAbbrevs(cmd, allParamsAfterThisOne, paramAbbrevs, previousParams.concat(param))
@@ -257,11 +272,8 @@ function addValidParamAbbrevs(abbrevs, potentialParamAbbrev) {
         const shortParamCmdString = createShortParamCmdString(paramToAbbrev, nonBooleanParam);
         const shortParamsAbbrev = filterBooleanParamsToString(paramToAbbrev, nonBooleanParam, '', true);
 
-        let nonBooleanCmdString = createNonBooleanCmdString(nonBooleanParam);
+        let nonBooleanCmdString = createNonBooleanCmdString(nonBooleanParam, shortParamCmdString);
         const nonBooleanParamString = nonBooleanParamToString(nonBooleanParam);
-        if (!shortParamCmdString && nonBooleanCmdString) {
-            nonBooleanCmdString = ` -${nonBooleanCmdString}`
-        }
 
         let paramAbbrev = `${paramToAbbrev.cmd.abbrev}${longParamsAbbrev}${shortParamsAbbrev}${nonBooleanParamString}`;
         let paramCmdString = `${paramToAbbrev.cmd.cmdString}${longParamCmdString}${shortParamCmdString}${nonBooleanCmdString}`;
@@ -278,8 +290,18 @@ function addValidParamAbbrevs(abbrevs, potentialParamAbbrev) {
 function filterBooleanParamsToString(paramToAbbrev, nonBooleanParam, joinBy, isShort = false) {
     return paramToAbbrev.params
         .filter(param => param !== nonBooleanParam && (isShort ? param.shortParam : !param.shortParam))
-        .map(param => isShort ? param.shortParam : param.longParam)
+        .map(param => findParamProperty(param))
         .join(joinBy);
+}
+
+function findParamProperty(param) {
+    if (param.shortParam) {
+        return param.shortParam
+    } else if (param.longParamAbbrev) {
+        return param.longParamAbbrev
+    } else {
+        return param.longParam;
+    }
 }
 
 function createLongParamCmdString(paramToAbbrev, nonBooleanParam) {
@@ -301,16 +323,19 @@ function createShortParamCmdString(paramToAbbrev, nonBooleanParam) {
 function nonBooleanParamToString(nonBooleanParam) {
     let nonBooleanParamString = '';
     if (nonBooleanParam) {
-        nonBooleanParamString = nonBooleanParam.shortParam ? nonBooleanParam.shortParam : nonBooleanParam.longParam;
+        nonBooleanParamString = findParamProperty(nonBooleanParam)
     }
     return nonBooleanParamString;
 }
 
-function createNonBooleanCmdString(nonBooleanParam) {
+function createNonBooleanCmdString(nonBooleanParam, shortParamCmdString) {
     let ret = '';
     if (nonBooleanParam) {
         if (nonBooleanParam.shortParam) {
-            ret = nonBooleanParam.shortParam;
+            if (!shortParamCmdString) {
+                ret += ' -'
+            }
+            ret += nonBooleanParam.shortParam;
         } else {
             ret = ` --${nonBooleanParam.longParam}`;
         }

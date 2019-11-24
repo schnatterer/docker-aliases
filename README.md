@@ -52,9 +52,10 @@ Are implemented by the following rules
 
 ```bash
 dpsa # docker ps -a
-drit nginx # docker run -it
-drrmd nginx #run --rm -d'
-drrmit nginx # docker run --rm -it
+drit image # docker run -it image
+drrmd image # docker run --rm -d image'
+drrmit image sh # docker run --rm -it image sh
+drrmep id image # docker run --rm --entrypoint id image '
 dexit container sh # docker exec -it container sh
 ```
 
