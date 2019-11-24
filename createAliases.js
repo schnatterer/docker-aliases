@@ -230,10 +230,19 @@ function addParamAbbrevs(abbrevs) {
 }
 
 function addLongParamAbbrev(param) {
-    // TODO even further: Create abbreviations for longParams containing hyphen (log-level -> ll)
     if (longParamAbbrevs[param.longParam]) {
         param.longParamAbbrev = longParamAbbrevs[param.longParam];
     }
+    // TODO even further: Create abbreviations for longParams containing hyphen (log-level -> ll)
+    // This will result in about 30k aliases (numberOfMaxParamsPerAlias=4) or 15k (numberOfMaxParamsPerAlias=3)
+    // From less than 2k before :-o
+    // Exclude duplicated commands like "docker container run|exec..."
+    /*else if (param.longParam.includes('-')) {
+        param.longParamAbbrev = param.longParam
+            .split('-')
+            .map( substring => substring[0])
+            .join('')
+    }*/
 }
 
 function createPotentialParamAbbrevs(cmd, params, paramAbbrevs = [], previousParams = []) {

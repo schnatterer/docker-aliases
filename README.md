@@ -29,7 +29,7 @@ Pro tip: grep the `alias` command, e.g like so:
 alias | grep 'docker run'
 ```
 
-### Parameters in aliase
+### Parameters in aliases
 
 Are implemented by the following rules
 
@@ -37,7 +37,7 @@ Are implemented by the following rules
 * At max one non-boolean parameter per alias (must be at the end because of argument)
 * Parameters without single character abbreviation (starting in `--`, e.g. `--rm`) are only contained in alias if 
   * the parameter has less than three chars
-  * has a predefined abbreviation (coming soon)
+  * has a predefined abbreviation (e.g. `entrypoint` = `ep`)
   * contains a hyphen (is then abbreviated `<first char><first char after hyphen`, e.g. `--log-level` = `ll`) (coming soon)
 * Order of parameters in alias
   * Parameters without single character abbreviation go first,
@@ -74,7 +74,6 @@ history| grep -E '^ *[0-9\w]*  docker ' | awk '{d = ""; for (f=2; f<=NF; ++f) {i
 # Most frequent sub commands: 
 history| grep -E '^ *[0-9\w]*  docker ' | awk '{print $2" "$3}' |awk 'BEGIN {FS="|"} {print $1}'|sort|uniq -c|sort -rn|head -30
 ``` 
-
 
 ## Implementation Details
 
