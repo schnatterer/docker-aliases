@@ -55,6 +55,7 @@ dpsa # docker ps -a
 drit image # docker run -it image
 drrmd image # docker run --rm -d image'
 drrmit image sh # docker run --rm -it image sh
+drrmitep sh image # docker run --rm -it --entrypoint sh image '
 drrmep id image # docker run --rm --entrypoint id image '
 dexit container sh # docker exec -it container sh
 ```

@@ -13,7 +13,7 @@ const binaryAbbrevStandalone = 'D';
 // Fist Simplification: Use alphabetical order without duplicates, e.g abc, ab, ac, bc; but not ba, cba, etct.
 // This still results in about 50.000 abbrevs for shortParams only!
 // So, limit number of params per command (recursion depth)
-const numberOfMaxParamsPerAlias = 3;
+const numberOfMaxParamsPerAlias = 4;
 
 // Use long params (more than one char), e.g. "--rm" or "--tls" up to this string length.
 // For longer params no alias is created
