@@ -16,6 +16,10 @@ const binaryAbbrevStandalone = 'D';
 // So, limit number of params per command (recursion depth)
 const numberOfMaxParamsPerAlias = 3;
 
+// Use long params (more than one char), e.g. "--rm" or "--tls" up to this string length.
+// For longer params no alias is created
+const numberOfCharsOfLongParamsToUseAsAlias = 2;
+
 // This contains a couple of commands that result in shorter abbreviations.
 // Why? The algorithm creates compromises, e.g. stop vs. start results in dsto and dsta, no one get ds or dst
 // These "predefineds" are pretty much opinionated, trying to create shorter abbrevs for commands that are frequently used
@@ -51,9 +55,6 @@ let predefinedAbbrevCmds = {
 // ➜ history| grep -E '^ *[0-9\w]*  docker ' | awk '{d = ""; for (f=2; f<=NF; ++f) {if ($f =="|") break; printf("%s%s", d, $f); d = OFS}; printf("\n") }' |sort|uniq -c|sort -rn | grep '\-' | less
 // Most frequent sub commands: history| grep -E '^ *[0-9\w]*  docker ' | awk '{print $2" "$3}' |awk 'BEGIN {FS="|"} {print $1}'|sort|uniq -c|sort -rn|head -30
 let predefinedAbbrevParams = {
-    rrm: 'run --rm',
-    rrmd: 'run --rm -d',
-    rrmit: 'run --rm -it',
 };
 
 // TODO exclude aliases to exclude because they make no sense semantically. Cant be automated.
@@ -233,14 +234,8 @@ function createPotentialParamAbbrevs(cmd, params, paramAbbrevs = [], previousPar
     if (params && previousParams.length <= numberOfMaxParamsPerAlias - 1) {
         params.forEach(param => {
 
-            // Maybe in future find a way to support long params, e.g. --rm as well
-            // TODO Idea: Use long params with up to 2 or 3 chars?
-            // What about sort order? E.g. plain alphabetical would be harder to remember
-            // e.g. 'docker run -it --rm' - 'drirmt' unintuitive?! 'dritrm' would be easier but 'drrmit' would more fun in this case :D
-            // Maybe short parms first? Or Last? Implement in addValidParamAbbrevs()
-
             // TODO Further idea: add abbrevs for sub commands. e.g. --entrypoint -> ep
-            if (param.shortParam) {
+            if (param.shortParam || param.longParam.length <= numberOfCharsOfLongParamsToUseAsAlias) {
                 paramAbbrevs.push({cmd: cmd, params: previousParams.concat(param)});
                 // Recurse into all other parameters, that follow alphabetically after this one
                 let allParamsAfterThisOne = cmd.params.slice(cmd.params.indexOf(param) + 1);
@@ -260,21 +255,20 @@ function addValidParamAbbrevs(abbrevs, potentialParamAbbrev) {
         }
         const nonBooleanParam = nonBooleanParams.length > 0 ? nonBooleanParams[0] : undefined;
 
-        let paramAbbrev = paramToAbbrev.cmd.abbrev;
-        let paramCmdString = `${paramToAbbrev.cmd.cmdString} -`;
-        paramToAbbrev.params.forEach(param => {
-            if (param === nonBooleanParam) {
-                // Param that expects an argument must be at the end
-                return
-            }
-            paramAbbrev += param.shortParam;
-            paramCmdString += param.shortParam;
-        });
+        const longParamCmdString = createLongParamCmdString(paramToAbbrev, nonBooleanParam);
+        const longParamsAbbrev = filterBooleanParamsToString(paramToAbbrev, nonBooleanParam,'');
 
-        if (nonBooleanParam) {
-            paramAbbrev += nonBooleanParam.shortParam;
-            paramCmdString += nonBooleanParam.shortParam;
+        const shortParamCmdString = createShortParamCmdString(paramToAbbrev, nonBooleanParam);
+        const shortParamsAbbrev = filterBooleanParamsToString(paramToAbbrev, nonBooleanParam, '', true);
+
+        let nonBooleanCmdString = createNonBooleanCmdString(nonBooleanParam);
+        const nonBooleanParamString = nonBooleanParamToString(nonBooleanParam);
+        if (!shortParamCmdString && nonBooleanCmdString) {
+            nonBooleanCmdString = ` -${nonBooleanCmdString}`
         }
+
+        let paramAbbrev = `${paramToAbbrev.cmd.abbrev}${longParamsAbbrev}${shortParamsAbbrev}${nonBooleanParamString}`;
+        let paramCmdString = `${paramToAbbrev.cmd.cmdString}${longParamCmdString}${shortParamCmdString}${nonBooleanCmdString}`;
 
         if (abbrevs[paramAbbrev]) {
             // TODO how to handle those?
@@ -283,6 +277,49 @@ function addValidParamAbbrevs(abbrevs, potentialParamAbbrev) {
             abbrevs[paramAbbrev] = {parent: paramToAbbrev.cmd, abbrev: paramAbbrev, cmdString: paramCmdString};
         }
     });
+}
+
+function filterBooleanParamsToString(paramToAbbrev, nonBooleanParam, joinBy, isShort = false) {
+    return paramToAbbrev.params
+        .filter(param => param !== nonBooleanParam && (isShort ? param.shortParam : !param.shortParam))
+        .map(param => isShort ? param.shortParam : param.longParam)
+        .join(joinBy);
+}
+
+function createLongParamCmdString(paramToAbbrev, nonBooleanParam) {
+    let longParamsCmdString = filterBooleanParamsToString(paramToAbbrev, nonBooleanParam, ' --');
+    if (longParamsCmdString) {
+        longParamsCmdString = ` --${longParamsCmdString}`
+    }
+    return longParamsCmdString;
+}
+
+function createShortParamCmdString(paramToAbbrev, nonBooleanParam) {
+    let shortParamsCmdString = filterBooleanParamsToString(paramToAbbrev, nonBooleanParam, '', true);
+    if (shortParamsCmdString) {
+        shortParamsCmdString = ` -${shortParamsCmdString}`
+    }
+    return shortParamsCmdString;
+}
+
+function nonBooleanParamToString(nonBooleanParam) {
+    let nonBooleanParamString = '';
+    if (nonBooleanParam) {
+        nonBooleanParamString = nonBooleanParam.shortParam ? nonBooleanParam.shortParam : nonBooleanParam.longParam;
+    }
+    return nonBooleanParamString;
+}
+
+function createNonBooleanCmdString(nonBooleanParam) {
+    let ret = '';
+    if (nonBooleanParam) {
+        if (nonBooleanParam.shortParam) {
+            ret = nonBooleanParam.shortParam;
+        } else {
+            ret = ` --${nonBooleanParam.longParam}`;
+        }
+    }
+    return ret;
 }
 
 function updateAbbrev(abbrevs, abbrev, commandObj, commands) {
