@@ -23,10 +23,17 @@ run within docker container.
 
 ## Learning aliases
 
-Pro tip: grep the `alias` command, e.g like so:  
+Pro tip 1: grep the `alias` command, e.g like so:  
 
 ```bash
 alias | grep 'docker run'
+```
+
+Pro tip 2: Use an alias reminder such as [MichaelAquilina/zsh-you-should-use](https://github.com/MichaelAquilina/zsh-you-should-use):
+
+```bash
+$ docker run --rm -it --entrypoint javac gcr.io/distroless/java:8
+Found existing alias for "docker run --rm -it --entrypoint". You should use: "drrmitep"
 ```
 
 ### Parameters in aliases
