@@ -58,6 +58,11 @@ const longParamAbbrevs = {
     entrypoint : 'ep'
 };
 
+// Create abbreviations for longParams containing hyphen (log-level -> ll)
+// Note: this will result in about 23k aliases (numberOfMaxParamsPerAlias=4) or 10k (numberOfMaxParamsPerAlias=3)
+// From less than 1k before :-o
+const createAliasesForLongParamsWithHyphen = false;
+
 // Docker implements some synonym commands, that lead to a huge number of almost redundant aliases
 // As we're facing a huge number of aliases anyway we can reduce them drastically by ignoring them
 // Note that the following container/image sub commands are deliberately not excluded (as they only exist as subcommand)
@@ -286,16 +291,12 @@ function addParamAbbrevs(abbrevs) {
 function addLongParamAbbrev(param) {
     if (longParamAbbrevs[param.longParam]) {
         param.longParamAbbrev = longParamAbbrevs[param.longParam];
-    }
-    // even further: Create abbreviations for longParams containing hyphen (log-level -> ll)
-    // This will result in about 23k aliases (numberOfMaxParamsPerAlias=4) or 10k (numberOfMaxParamsPerAlias=3)
-    // From less than 1k before :-o
-    /*else if (param.longParam.includes('-')) {
+    } else if (createAliasesForLongParamsWithHyphen && param.longParam.includes('-')) {
         param.longParamAbbrev = param.longParam
             .split('-')
             .map( substring => substring[0])
             .join('')
-    }*/
+    }
 }
 
 function createPotentialParamAbbrevs(cmd, params, paramAbbrevs = [], previousParams = []) {

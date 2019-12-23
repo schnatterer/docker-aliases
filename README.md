@@ -40,12 +40,13 @@ Found existing alias for "docker run --rm -it --entrypoint". You should use: "dr
 
 Are implemented by the following rules
 
-* At max 3 parameters within one alias 
+* At max 4 parameters within one alias 
 * At max one non-boolean parameter per alias (must be at the end because of argument)
 * Parameters without single character abbreviation (starting in `--`, e.g. `--rm`) are only contained in alias if 
   * the parameter has less than three chars
   * has a predefined abbreviation (e.g. `entrypoint` = `ep`)
-  * contains a hyphen (is then abbreviated `<first char><first char after hyphen`, e.g. `--log-level` = `ll`) (coming soon)
+  * ~~contains a hyphen (is then abbreviated `<first char><first char after hyphen`, e.g. `--log-level` = `ll`)~~   
+    (can be enable in code but results in thousands of aliases)
 * Order of parameters in alias
   * Parameters without single character abbreviation go first,
   * followed by the single character parameters (e.g. `-t`),
