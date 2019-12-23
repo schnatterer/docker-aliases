@@ -24,6 +24,7 @@ const numberOfCharsOfLongParamsToUseAsAlias = 2;
 // These "predefineds" are pretty much opinionated, trying to create shorter abbrevs for commands that are frequently used
 // Note that binary is added to abbrev an command automatically
 // e.g. b : build -> db : docker build
+// TODO - use the same abbrevs also in nested commands, i.e. svc for docker services and docker stack services
 let predefinedAbbrevCmds = {
     a: 'app',
     b: 'build',
@@ -55,6 +56,49 @@ let predefinedAbbrevParams = {
 
 const longParamAbbrevs = {
     entrypoint : 'ep'
+};
+
+// Docker implements some synonym commands, that lead to a huge number of almost redundant aliases
+// As we're facing a huge number of aliases anyway we can reduce them drastically by ignoring them
+// Note that the following container/image sub commands are deliberately not excluded (as they only exist as subcommand)
+// - prune,
+// - inspect (docker image inspect is more specific than docker inspect)
+const filterLegacySubCommands = false; // docker ps, docker rmi, etc
+const filterLegacySubCommandReplacements = true; // docker container ls, docker image rm, etc
+const legacyCommandReplacements = {
+    'container attach': 'attach',
+    'container commit': 'commit',
+    'container cp': 'cp',
+    'container create': 'create',
+    'container diff': 'diff',
+    'container exec': 'exec',
+    'container export': 'export',
+    'container kill' : 'kill',
+    'container logs' : 'logs',
+    'container ls' : 'ps',
+    'container pause' : 'pause',
+    'container port' : 'port',
+    'container rename' : 'rename',
+    'container restart' : 'restart',
+    'container rm' : 'rm',
+    'container run' : 'run',
+    'container start' : 'start',
+    'container stats' : 'stats',
+    'container stop' : 'stop',
+    'container top' : 'top',
+    'container unpause' : 'unpause',
+    'container update' : 'update',
+    'container wait' : 'wait',
+    'image build' : 'build',
+    'image history' : 'history',
+    'image import' : 'import',
+    'image load' : 'load',
+    'image ls' : 'images',
+    'image pull' : 'pull',
+    'image push' : 'push',
+    'image rm' : 'rmi',
+    'image save' : 'save',
+    'image tag' : 'tag'
 };
 
 main();
@@ -118,6 +162,18 @@ function parseCommands(command, parent, currentResult) {
                 return currentResult
             }
         })
+}
+
+function filterCommands(abbrevs) {
+        Object.keys(abbrevs).sort().forEach(abbrev => {
+            const abbrevObj = abbrevs[abbrev];
+            let cmdWithoutBinary = abbrevObj.cmdString.replace(new RegExp(`^${binary} `), '');
+            if ((filterLegacySubCommandReplacements && Object.keys(legacyCommandReplacements).includes(cmdWithoutBinary)) ||
+                (filterLegacySubCommands && Object.values(legacyCommandReplacements).includes(cmdWithoutBinary)) ) {
+                    console.error(`Removing command, due to filtering options: ${abbrevObj.cmdString}`);
+                    delete abbrevs[abbrev];
+            }
+        });
 }
 
 function createAbbrevs(commands, predefined) {
@@ -201,6 +257,7 @@ function createAbbrevs(commands, predefined) {
             }
         }
     });
+    filterCommands(abbrevs);
     addParamAbbrevs(abbrevs);
     changeBinaryAbbrevStandalone(abbrevs);
     // Sorting by cmd instead of abbrev make comparing alias results easier after changes
@@ -230,10 +287,9 @@ function addLongParamAbbrev(param) {
     if (longParamAbbrevs[param.longParam]) {
         param.longParamAbbrev = longParamAbbrevs[param.longParam];
     }
-    // TODO even further: Create abbreviations for longParams containing hyphen (log-level -> ll)
-    // This will result in about 30k aliases (numberOfMaxParamsPerAlias=4) or 15k (numberOfMaxParamsPerAlias=3)
-    // From less than 2k before :-o
-    // Exclude duplicated commands like "docker container run|exec..."
+    // even further: Create abbreviations for longParams containing hyphen (log-level -> ll)
+    // This will result in about 23k aliases (numberOfMaxParamsPerAlias=4) or 10k (numberOfMaxParamsPerAlias=3)
+    // From less than 1k before :-o
     /*else if (param.longParam.includes('-')) {
         param.longParamAbbrev = param.longParam
             .split('-')

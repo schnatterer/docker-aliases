@@ -18,7 +18,7 @@ node createAliases.js | cat > ~/.docker_aliases && source ~/.docker_aliases
 echo "[[ -f ~/.docker_aliases ]] && source ~/.docker_aliases" >> ~/.zshrc
 ```
 
-Note that in the container the `Docker Inc,` sub commands `docker app` and `docker buildx` seem not to be included when
+Note that in the container the `Docker Inc,` plugins `docker app` and `docker buildx` seem not to be included when
 run within docker container. 
 
 ## Learning aliases
@@ -54,6 +54,10 @@ Are implemented by the following rules
   * If multiple Parameters without single character abbreviation or single char params the order is always alphabetical,  
     i.e  params `a`, `b` and `c` -> `ab`, `ac`, `abc`, `bc`. Not `ba`, `ca`, etc.  
     Otherwise there would be way to many aliases.
+* Excluded aliased/"duplicated" parameters [introduced in Docker 1.13](https://www.docker.com/blog/whats-new-in-docker-1-13/) 
+  in order to drastically reduce number of aliases (from 1800 to 1000 aliases at the time of implementing).  
+  Favor "older" commands (e.g `docker ps`, `docker rmi`) over new ones (e.g. `docker container ls`, `docker image rm`) 
+  because they are shorter (can be configured in the code, though)
 
 ### Prominent examples
 
@@ -62,9 +66,10 @@ dpsa # docker ps -a
 drit image # docker run -it image
 drrmd image # docker run --rm -d image'
 drrmit image sh # docker run --rm -it image sh
-drrmitep sh image # docker run --rm -it --entrypoint sh image '
-drrmep id image # docker run --rm --entrypoint id image '
+drrmitep sh image # docker run --rm -it --entrypoint sh image
+drrmep id image # docker run --rm --entrypoint id image
 dexit container sh # docker exec -it container sh
+drmf container # docker rm -f container
 ```
 
 ## Aliases missing?
@@ -147,7 +152,6 @@ the golden master.
   * For short params there is no conflict resolution.
   * In conflicts with subcommands the params could take precedence. But make all maybe 100 aliases of a subcommand longer 
     because of one param alias?  
-* provide CLI option for overriding (e.g. for podman) and use throughout app
-* predefinedAbbrevCmds - use the same abbrevs also in nested commands, i.e. svc for docker services and docker stack services
-
+* provide CLI options to allow for conveniently creating customized aliases
+* native podman support
 
