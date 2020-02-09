@@ -10,12 +10,22 @@ and [kubectl-aliases](https://github.com/ahmetb/kubectl-aliases).
 ## Installation
 
 ```bash
+DOCKER_ALIASES_VERSION=0.2.0
+# Download aliases
+curl -fSL "https://github.com/schnatterer/docker-aliases/releases/download/${DOCKER_ALIASES_VERSION}/default.docker-aliases" \
+  > ~/.docker_aliases
+# Test aliases in current shell
+source "~/.docker_aliases"
+# Or load aliases when zsh starts
+echo "[[ -f ~/.docker_aliases ]] >> ~/.zshrc
+```
+Instead of downloading you could create the aliases yourself:
+
+```bash
 # Create aliases with docker
-docker run --rm schnatterer/docker-aliases > ~/.docker_aliases && source ~/.docker_aliases
-# Alternative: Create aliases with local node and docker installation, executing script from this repo
-node createAliases.js | cat > ~/.docker_aliases && source ~/.docker_aliases
-# Load aliases when zsh starts
-echo "[[ -f ~/.docker_aliases ]] && source ~/.docker_aliases" >> ~/.zshrc
+docker run --rm schnatterer/docker-aliases:${DOCKER_ALIASES_VERSION} > ~/.docker_aliases
+# Create aliases with local node and docker installation, executing script from this repo
+node createAliases.js | cat > ~/.docker_aliases
 ```
 
 Note that in the container the `Docker Inc,` plugins `docker app` and `docker buildx` seem not to be included when
@@ -35,6 +45,21 @@ Pro tip 2: Use an alias reminder such as [MichaelAquilina/zsh-you-should-use](ht
 $ docker run --rm -it --entrypoint javac gcr.io/distroless/java:8
 Found existing alias for "docker run --rm -it --entrypoint". You should use: "drrmitep"
 ```
+### Prominent examples
+
+```bash
+D # docker" - "alias d" already taken https://github.com/robbyrussell/oh-my-zsh/blob/master/lib/directories.zsh
+dl image # docker pull image
+dlg container # docker logs container
+dpsa # docker ps -a
+drit image # docker run -it image
+drrmd image # docker run --rm -d image'
+drrmit image sh # docker run --rm -it image sh
+drrmitep sh image # docker run --rm -it --entrypoint sh image
+drrmep id image # docker run --rm --entrypoint id image
+dexit container sh # docker exec -it container sh
+drmf container # docker rm -f container
+```
 
 ### Parameters in aliases
 
@@ -47,31 +72,19 @@ Are implemented by the following rules
   * has a predefined abbreviation (e.g. `entrypoint` = `ep`)
   * ~~contains a hyphen (is then abbreviated `<first char><first char after hyphen`, e.g. `--log-level` = `ll`)~~   
     (can be enable in code but results in thousands of aliases)
-* Order of parameters in alias
-  * Parameters without single character abbreviation go first,
-  * followed by the single character parameters (e.g. `-t`),
-  * The boolean parameter is always at the end  
+* Order of commands and paramaters in alias
+  * Commands go first (e.g. `docker run` -> `dr`)
+  * Parameters without single character abbreviation go next (e.g. `--rm`),
+  * followed by the single character parameters (e.g. `-i`),
+  * The non-boolean parameter is always at the end  (e.g. `-v`)
     (otherwise the the command would not be syntactically correct).
-  * If multiple Parameters without single character abbreviation or single char params the order is always alphabetical,  
-    i.e  params `a`, `b` and `c` -> `ab`, `ac`, `abc`, `bc`. Not `ba`, `ca`, etc.  
+  * If multiple Parameters without single character abbreviation or single char params, the order is always alphabetical,  
+    i.e.  params `a`, `b` and `c` -> aliases `ab`, `ac`, `abc`, `bc`. No aliases: `ba`, `ca`, etc.  
     Otherwise there would be way to many aliases.
 * Excluded aliased/"duplicated" parameters [introduced in Docker 1.13](https://www.docker.com/blog/whats-new-in-docker-1-13/) 
   in order to drastically reduce number of aliases (from 1800 to 1000 aliases at the time of implementing).  
   Favor "older" commands (e.g `docker ps`, `docker rmi`) over new ones (e.g. `docker container ls`, `docker image rm`) 
   because they are shorter (can be configured in the code, though)
-
-### Prominent examples
-
-```bash
-dpsa # docker ps -a
-drit image # docker run -it image
-drrmd image # docker run --rm -d image'
-drrmit image sh # docker run --rm -it image sh
-drrmitep sh image # docker run --rm -it --entrypoint sh image
-drrmep id image # docker run --rm --entrypoint id image
-dexit container sh # docker exec -it container sh
-drmf container # docker rm -f container
-```
 
 ## Aliases missing?
 
