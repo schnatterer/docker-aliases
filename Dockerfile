@@ -1,4 +1,4 @@
-FROM node:12.13.0-alpine3.10 as node
+FROM node:12.15.0-alpine3.11 as node
 
 FROM node as builder
 ARG DOCKER_VERSION=19.03.5
