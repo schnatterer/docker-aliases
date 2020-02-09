@@ -24,7 +24,6 @@ const numberOfCharsOfLongParamsToUseAsAlias = 2;
 // These "predefineds" are pretty much opinionated, trying to create shorter abbrevs for commands that are frequently used
 // Note that binary is added to abbrev an command automatically
 // e.g. b : build -> db : docker build
-// TODO check if predefineds exist in current docker version at all? e.g. buildx newer, not in all docker versions
 let predefinedAbbrevCmds = {
     a: 'app',
     b: 'build',
@@ -274,8 +273,8 @@ function createAbbrevs(commands, predefined) {
     Object.keys(predefined).forEach(predefinedAbbrev => {
         let predefinedCommand = commands[predefined[predefinedAbbrev]];
         if (!predefinedCommand) {
-            // A parent is not needed for predefineds
-            predefinedCommand = {cmdString: predefined[predefinedAbbrev]};
+            console.error(`Skipping predefined command, because not returned by docker CLI: ${predefined[predefinedAbbrev]}`)
+            return
         }
         abbrevs[predefinedAbbrev] = predefinedCommand;
         predefinedCommand.predefined = true;
