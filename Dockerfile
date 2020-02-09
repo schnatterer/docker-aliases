@@ -16,6 +16,7 @@ RUN yarn install
 RUN mv node_modules /dist
 
 COPY createAliases.js /dist
+COPY package.json /dist
 
 
 FROM node

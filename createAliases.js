@@ -1,3 +1,5 @@
+const packageJson = require('./package.json');
+
 const exec = require('child-process-promise').exec;
 
 const envVars = 'DOCKER_CLI_EXPERIMENTAL=enabled';
@@ -111,6 +113,7 @@ main();
 
 function main() {
 
+    console.log(`# Created with docker-aliases ${packageJson.version}`);
     let commands = {};
     parseCommands('docker', undefined, commands)
         .then(() => {
