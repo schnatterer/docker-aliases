@@ -197,71 +197,83 @@ function createAbbrevs(commands, predefined) {
         predefinedCommand.abbrev = predefinedAbbrev;
     });
 
-    // Sort commands in order to have shorter versions first. Otherwise this might fail ['signer', 'sign']
-    Object.keys(commands).sort().forEach(absoluteCommand => {
-        let commandObj = commands[absoluteCommand];
-        if (commandObj.predefined) {
-            return
-        }
-        const currentSubCommand = commandObj.cmd;
-        let competingCommand;
-        for (let i = 0; i < currentSubCommand.length + 1; i++) {
-            // Run to length+1 for sanity checking
-            if (i === currentSubCommand.length) {
-                throw `No matching abbreviation found for command: ${absoluteCommand}`
+    while (Object.keys(abbrevs).length < Object.keys(commands).length) {
+        // Sort commands in order to have shorter versions first. Otherwise this might fail ['signer', 'sign']
+        Object.keys(commands).sort().forEach(absoluteCommand => {
+            let commandObj = commands[absoluteCommand];
+            if (commandObj.predefined) {
+                return
             }
-            const parentAbbrev = commandObj.parent ? commandObj.parent.abbrev : '';
-            let potentialAbbrev = `${parentAbbrev}${currentSubCommand.substring(0, i + 1)}`;
-            if (!competingCommand) {
-                competingCommand = abbrevs[potentialAbbrev];
-                if (!competingCommand) {
-                    if (!conflicts.includes(potentialAbbrev) ||
-                        // Last char of this command. Pick it even though there are conflicts.
-                        //Example: "builds" & "builder" are processed. Then "build" is processed.
-                        i === currentSubCommand.length - 1) {
-                        setAbbrev(abbrevs, potentialAbbrev, commandObj);
-                        break
-                    }
-                } else {
-                    if (!competingCommand.predefined) {
-                        conflicts.push(potentialAbbrev);
-                        delete abbrevs[potentialAbbrev];
-                        delete commandObj.abbrev
-                        // TODO what to do if i === currentSubCommand.length - 1?
-                        // This will result in "No matching abbreviation found"
-                        // But just setting to competingCommand is not possible because what would be the abbrev for
-                        // competingCommand? Create a list of subcommands that need to be moved after this loop?
-                        // Could also be used for params.
-                    } else {
-                        competingCommand = undefined
-                    }
+            if (abbrevs[commandObj.abbrev]) {
+                console.error(`abbrev exists! ${commandObj.abbrev} - ${commandObj.cmdString}`)
+                return
+            }
+            const currentSubCommand = commandObj.cmd;
+            let competingCommand;
+            for (let i = 0; i < currentSubCommand.length + 1; i++) {
+                // Run to length+1 for sanity checking
+                if (i === currentSubCommand.length) {
+                    throw `No matching abbreviation found for command: ${absoluteCommand}`
                 }
-            } else {
-                if (competingCommand.cmdString.charAt(i)) {
-                    const competingParentAbbrev = competingCommand.parent ? competingCommand.parent.abbrev : '';
-                    const competingAbbrev = `${competingParentAbbrev}${competingCommand.cmd.substring(0, i + 1)}`;
-                    if (competingAbbrev === potentialAbbrev) {
-                        // Conflict persists
-                        conflicts.push(potentialAbbrev);
-                    } else {
-                        if (!conflicts.includes(potentialAbbrev)) {
-                            // We have found a compromise
+                const parentAbbrev = commandObj.parent ? commandObj.parent.abbrev : '';
+                let potentialAbbrev = `${parentAbbrev}${currentSubCommand.substring(0, i + 1)}`;
+                if (!competingCommand) {
+                    competingCommand = abbrevs[potentialAbbrev];
+                    if (!competingCommand) {
+                        if (!conflicts.includes(potentialAbbrev) ||
+                            // Last char of this command. Pick it even though there are conflicts.
+                            //Example: "builds" & "builder" are processed. Then "build" is processed.
+                            i === currentSubCommand.length - 1) {
                             setAbbrev(abbrevs, potentialAbbrev, commandObj);
-                            updateAbbrev(abbrevs, competingAbbrev, competingCommand, commands);
                             break
+                        }
+                    } else {
+                        if (!competingCommand.predefined) {
+                            if (i === currentSubCommand.length - 1) {
+                                // last character of currentSubCommand. It has to get this abbrev or the next iteration 
+                                // will result in "No matching abbreviation found".
+                                // But just setting to competingCommand is not possible because the competing command 
+                                // is already processed and would lose its abrrev
+                                // So: current gets abbrev and we start the loop again for competingCommand
+                                removeAbbrev(competingCommand, competingCommand, commands);
+                                setAbbrev(abbrevs, potentialAbbrev, commandObj);
+                                return
+                            } else {
+                                conflicts.push(potentialAbbrev);
+                                delete abbrevs[potentialAbbrev];
+                                delete commandObj.abbrev
+                            }
+                        } else {
+                            competingCommand = undefined
                         }
                     }
                 } else {
-                    // competing command is shorter, it gets the shorter abbrev
-                    let shorterAbbrev = potentialAbbrev.substring(0, i);
-                    // Skip removing the conflict, it doesnt matter
-                    setAbbrev(abbrevs, potentialAbbrev, commandObj);
-                    updateAbbrev(abbrevs, shorterAbbrev, competingCommand, commands);
-                    break;
+                    if (competingCommand.cmdString.charAt(i)) {
+                        const competingParentAbbrev = competingCommand.parent ? competingCommand.parent.abbrev : '';
+                        const competingAbbrev = `${competingParentAbbrev}${competingCommand.cmd.substring(0, i + 1)}`;
+                        if (competingAbbrev === potentialAbbrev) {
+                            // Conflict persists
+                            conflicts.push(potentialAbbrev);
+                        } else {
+                            if (!conflicts.includes(potentialAbbrev)) {
+                                // We have found a compromise
+                                setAbbrev(abbrevs, potentialAbbrev, commandObj);
+                                updateAbbrev(abbrevs, competingAbbrev, competingCommand, commands);
+                                break
+                            }
+                        }
+                    } else {
+                        // competing command is shorter, it gets the shorter abbrev
+                        let shorterAbbrev = potentialAbbrev.substring(0, i);
+                        // Skip removing the conflict, it doesnt matter
+                        setAbbrev(abbrevs, potentialAbbrev, commandObj);
+                        updateAbbrev(abbrevs, shorterAbbrev, competingCommand, commands);
+                        break;
+                    }
                 }
             }
-        }
-    });
+        });
+    }
     filterCommands(abbrevs);
     addParamAbbrevs(abbrevs);
     changeBinaryAbbrevStandalone(abbrevs);
@@ -419,6 +431,17 @@ function updateAbbrev(abbrevs, abbrev, commandObj, commands) {
     });
     abbrevs[abbrev] = commandObj;
     commandObj.abbrev = abbrev;
+}
+
+function removeAbbrev(abbrevs, commandObj, commands) {
+    commandObj.subcommands.forEach(subCommand => {
+        const subCommandObj = commands[`${commandObj.cmdString} ${subCommand}`];
+            delete abbrevs[subCommandObj.abbrev];
+            delete subCommandObj.abbrev
+            removeAbbrev(abbrevs, subCommandObj, commands)
+    });
+    delete abbrevs[commandObj.abbrev];
+    delete commandObj.abbrev;
 }
 
 function setAbbrev(abbrevs, abbrev, commandObj) {
