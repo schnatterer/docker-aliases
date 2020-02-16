@@ -19,7 +19,8 @@ source "~/.docker_aliases"
 # Or load aliases when zsh starts
 echo "[[ -f ~/.docker_aliases ]] >> ~/.zshrc
 ```
-Instead of downloading you could create the aliases yourself:
+Instead of downloading you could create the aliases yourself. This also allows for configuring the alias generated 
+(see [Configuring aliases](#configuring-aliases)).
 
 ```bash
 # Create aliases with docker
@@ -85,6 +86,27 @@ Are implemented by the following rules
   in order to drastically reduce number of aliases (from 1800 to 1000 aliases at the time of implementing).  
   Favor "older" commands (e.g `docker ps`, `docker rmi`) over new ones (e.g. `docker container ls`, `docker image rm`) 
   because they are shorter (can be configured in the code, though)
+
+## Configuring aliases
+
+When generating aliases, they can be customized via environment variables.
+
+Note that changing those may or may not work. Especially increasing number of params will result in more conflicts and 
+even errors as the conflict handling is not perfect.
+
+| env var | default | notes |
+| ------- | ------- | ----- |
+| BINARY_ABBREV_UPPER| true | Create alias for with binary with capital letter, e.g. alias docker=D. All other alises are not affected |
+| ENABLE_DOCKER_EXPERIMENTAL | true | Create aliases for experimental commands |
+| FILTER_LEGACY_SUBCOMMANDS | false | Remove aliases for legacy (but shorter) sub commands such as docker ps, docker rmi, etc. |
+| FILTER_LEGACY_SUBCOMMANDS_REPLACEMENTS| true | Remove aliases for newer (but longer) sub commands such as docker container ls, docker image rm, etc. |
+| NUMBER_OF_MAX_PARAMS_PER_ALIAS| 4 | Maximals parameter created into one alias, e.g. 4 - docker run --rm -i -t --entrypoint  |
+| NUMBER_OF_CHARS_OF_LONG_PARAMS_TO_USE_AS_ALIAS| 2 | Long params (those with `--`) are included into aliase up to this number of chars. E.g. 2: `--rm` is included `--tls` is not. |
+
+Use them like so
+
+* Local node: `ENABLE_DOCKER_EXPERIMENTAL=false node createAliases.js | cat > ~/.docker_aliases`
+* Docker: `docker run --rm -e ENABLE_DOCKER_EXPERIMENTAL=true schnatterer/docker-aliases:${DOCKER_ALIASES_VERSION} > ~/.docker_aliases`
 
 ## Aliases missing?
 
