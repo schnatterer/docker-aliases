@@ -49,7 +49,7 @@ Found existing alias for "docker run --rm -it --entrypoint". You should use: "dr
 ### Prominent examples
 
 ```bash
-D # docker" - "alias d" already taken https://github.com/robbyrussell/oh-my-zsh/blob/master/lib/directories.zsh
+d # docker" - Note: This might overwrite oh-my-zsh function d(). This can be configured using BINARY_ABBREV_UPPER, see bellow. See also: https://github.com/robbyrussell/oh-my-zsh/blob/master/lib/directories.zsh 
 dl image # docker pull image
 dlg container # docker logs container
 dpsa # docker ps -a
@@ -96,7 +96,7 @@ even errors as the conflict handling is not perfect.
 
 | env var | default | notes |
 | ------- | ------- | ----- |
-| BINARY_ABBREV_UPPER| true | Create alias for with binary with capital letter, e.g. alias docker=D. All other alises are not affected |
+| BINARY_ABBREV_UPPER| false | Create alias for with binary with capital letter, e.g. alias docker=D. All other aliases are not affected |
 | ENABLE_DOCKER_EXPERIMENTAL | true | Create aliases for experimental commands |
 | FILTER_LEGACY_SUBCOMMANDS | false | Remove aliases for legacy (but shorter) sub commands such as docker ps, docker rmi, etc. |
 | FILTER_LEGACY_SUBCOMMANDS_REPLACEMENTS| true | Remove aliases for newer (but longer) sub commands such as docker container ls, docker image rm, etc. |

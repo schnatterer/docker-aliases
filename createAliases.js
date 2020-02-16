@@ -7,8 +7,9 @@ const envVars = enableDockerExperimental ? 'DOCKER_CLI_EXPERIMENTAL=enabled' : '
 const binary = 'docker';
 const binaryAbbrev = binary.charAt(0);
 // "alias d" already taken https://github.com/robbyrussell/oh-my-zsh/blob/master/lib/directories.zsh
-// So use upper when only using 'D' but stick with lower for all other aliases because its faster to type
-const binaryAbbrevUpper = envToBool('BINARY_ABBREV_UPPER', true);
+// A workaround would be to use upper when only using 'D' but stick with lower for all other aliases because its faster to type
+// However "D" is rather unintuitive. So stick to "d" but allow for configuring. 
+const binaryAbbrevUpper = envToBool('BINARY_ABBREV_UPPER', false);
 const binaryAbbrevStandalone = binaryAbbrevUpper ? binary.charAt(0).toUpperCase() : binary.charAt(0);
 
 //  All permutations, i.e. all parameters in all orders are way to many
