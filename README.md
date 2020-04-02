@@ -17,7 +17,7 @@ curl -fSL "https://github.com/schnatterer/docker-aliases/releases/download/${DOC
 # Test aliases in current shell
 source "~/.docker_aliases"
 # Or load aliases when zsh starts
-echo "[[ -f ~/.docker_aliases ]] >> ~/.zshrc
+echo '[[ -f ~/.docker_aliases ]] && source ~/.docker_aliases' >> ~/.zshrc
 ```
 Instead of downloading you could create the aliases yourself. This also allows for configuring the alias generated 
 (see [Configuring aliases](#configuring-aliases)).
