@@ -44,7 +44,7 @@ let predefinedAbbrevCmds = {
     n: 'network',
     l: 'pull',
     lg: 'logs',
-    p: 'plugin',
+    p: 'push',
     ps: 'ps',
     r: 'run',
     s: 'swarm',

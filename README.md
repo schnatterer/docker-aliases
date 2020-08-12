@@ -51,6 +51,7 @@ Found existing alias for "docker run --rm -it --entrypoint". You should use: "dr
 ```bash
 d # docker" - Note: This might overwrite oh-my-zsh function d(). This can be configured using BINARY_ABBREV_UPPER, see bellow. See also: https://github.com/robbyrussell/oh-my-zsh/blob/master/lib/directories.zsh 
 dl image # docker pull image
+dp image # docker push image
 dlg container # docker logs container
 dpsa # docker ps -a
 drit image # docker run -it image
