@@ -1,6 +1,6 @@
 # docker-aliases
-[![Build Status](https://travis-ci.org/schnatterer/docker-aliases.svg?branch=master)](https://travis-ci.org/schnatterer/docker-aliases)
-[![](https://images.microbadger.com/badges/image/schnatterer/docker-aliases.svg)](https://hub.docker.com/r/schnatterer/docker-aliases)
+[![Build](https://github.com/schnatterer/docker-aliases/actions/workflows/main.yml/badge.svg)](https://github.com/schnatterer/docker-aliases/actions/workflows/main.yml)
+[![Docker Hub](https://img.shields.io/docker/image-size/schnatterer/docker-aliases)](https://hub.docker.com/r/schnatterer/docker-aliases)
 
 (Semi-) automatically generated docker CLI aliases.
 
