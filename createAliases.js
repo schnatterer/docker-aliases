@@ -253,7 +253,10 @@ function createCommandAbbrevs(commands, abbrevs, conflicts) {
                         // Conflict persists
                         conflicts.push(potentialAbbrev);
                     } else {
-                        if (!conflicts.includes(potentialAbbrev)) {
+                        if (!conflicts.includes(potentialAbbrev) &&
+                                // Abbrev already taken (e.g. predefined)
+                                !abbrevs[potentialAbbrev]) {
+                        
                             // We have found a compromise
                             setAbbrev(abbrevs, potentialAbbrev, commandObj);
                             updateAbbrev(abbrevs, competingAbbrev, competingCommand, commands);
@@ -515,9 +518,17 @@ function findCommands(stdoutLines) {
 }
 
 function findParams(stdoutLines) {
-    let params = stdoutLines.filter(stdoutLine => /^ +-{1,2}\w*/.test(stdoutLine));
+    // exec() seems to be done width a line with of 80 chars (columns), so the docker .. --help commands get a lot more line breaks than neccsary.
+    // e.g. "docker  service update --help" returns
+    // "--max-concurrent uint                Number of job tasks to run concurrently (default equal to --replicas)"
+    // which is returned as three lines resulting in "--replicas" being interpreted as new parameter.
+    // So: Ignore when starting with "a lot" of spaces. Arbitrarily pick 20 :/
+    // It would be more robust to make exec() use more columns, but there's no obvious way to do this...
+    let params = stdoutLines.filter(stdoutLine => /^ {1,20}-{1,2}\w*/.test(stdoutLine));
     let paramObjs = params.map(param => {
-        const matchesShortParam = /-(\w), --([\w-]*) (\w*).*/.exec(param);
+        // Third group and space in front optional, because of
+        // "docker app image rm" -> "  -f, --force"
+        const matchesShortParam = /-(\w), --([\w-]*) ?(\w*)?.*/.exec(param);
         if (matchesShortParam === null) {
             const matchesLongParam = /--([\w-]*) (\w*).*/.exec(param);
             if (matchesLongParam === null) {

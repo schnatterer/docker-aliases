@@ -1,7 +1,7 @@
-FROM node:12.15.0-alpine3.11 as node
+FROM node:14.17.0-alpine3.13 as node
 
 FROM node as builder
-ARG DOCKER_VERSION=19.03.5
+ARG DOCKER_VERSION=20.10.6
 RUN mkdir /dist
 
 WORKDIR /work
