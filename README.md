@@ -29,8 +29,9 @@ docker run --rm schnatterer/docker-aliases:${DOCKER_ALIASES_VERSION} > ~/.docker
 node createAliases.js | cat > ~/.docker_aliases
 ```
 
-Note that in the container the `Docker Inc,` plugins `docker app` and `docker buildx` seem not to be included when
-run within docker container. 
+Note that there are slight differences between the container (that uses the static docker binary) and docker installed
+via the package manager. For example, the static binary does not provide `docker checkpoint`, `docker scan` and `-h`
+parameters.
 
 ## Learning aliases
 
