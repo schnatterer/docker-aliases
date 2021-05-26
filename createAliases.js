@@ -510,8 +510,12 @@ function findCommands(stdoutLines) {
             stdOutLine.startsWith('  ')) {
             commandLines.push(stdOutLine)
         } else if (stdOutLine.startsWith('Commands:') ||
+            stdOutLine.startsWith('Available Commands:') || 
             stdOutLine.startsWith('Management Commands:')) {
             afterCommandsLine = true
+        } else if (stdOutLine.startsWith('Flags:')) {
+            // In docker 20 docker context is different: "Flags" are bellow "Available Commands"
+            afterCommandsLine = false
         }
     });
     return commandLines.map(subCommand => subCommand.replace(/ *(\w-*)\** .*/, "$1").trim());
