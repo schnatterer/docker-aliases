@@ -1,13 +1,16 @@
 const packageJson = require('./package.json');
-
 const exec = require('child-process-promise').exec;
 
-const envVars = 'DOCKER_CLI_EXPERIMENTAL=enabled';
+const enableDockerExperimental = envToBool('ENABLE_DOCKER_EXPERIMENTAL', true);
+const envVars = enableDockerExperimental ? 'DOCKER_CLI_EXPERIMENTAL=enabled' : '';
+
 const binary = 'docker';
 const binaryAbbrev = binary.charAt(0);
 // "alias d" already taken https://github.com/robbyrussell/oh-my-zsh/blob/master/lib/directories.zsh
-// So use upper when only using 'D' but stick with lower for all other aliases because its faster to type
-const binaryAbbrevStandalone = 'D';
+// A workaround would be to use upper when only using 'D' but stick with lower for all other aliases because its faster to type
+// However "D" is rather unintuitive. So stick to "d" but allow for configuring. 
+const binaryAbbrevUpper = envToBool('BINARY_ABBREV_UPPER', false);
+const binaryAbbrevStandalone = binaryAbbrevUpper ? binary.charAt(0).toUpperCase() : binary.charAt(0);
 
 //  All permutations, i.e. all parameters in all orders are way to many
 //  e.g. docker run -diPt
@@ -15,11 +18,11 @@ const binaryAbbrevStandalone = 'D';
 // Fist Simplification: Use alphabetical order without duplicates, e.g abc, ab, ac, bc; but not ba, cba, etct.
 // This still results in about 50.000 abbrevs for shortParams only!
 // So, limit number of params per command (recursion depth)
-const numberOfMaxParamsPerAlias = 4;
+const numberOfMaxParamsPerAlias = process.env.NUMBER_OF_MAX_PARAMS_PER_ALIAS || 4;
 
 // Use long params (more than one char), e.g. "--rm" or "--tls" up to this string length.
 // For longer params no alias is created
-const numberOfCharsOfLongParamsToUseAsAlias = 2;
+const numberOfCharsOfLongParamsToUseAsAlias = process.env.NUMBER_OF_CHARS_OF_LONG_PARAMS_TO_USE_AS_ALIAS || 2;
 
 // This contains a couple of commands that result in shorter abbreviations.
 // Why? The algorithm creates compromises, e.g. stop vs. start results in dsto and dsta, no one get ds or dst
@@ -41,7 +44,7 @@ let predefinedAbbrevCmds = {
     n: 'network',
     l: 'pull',
     lg: 'logs',
-    p: 'plugin',
+    p: 'push',
     ps: 'ps',
     r: 'run',
     s: 'swarm',
@@ -53,6 +56,8 @@ let predefinedAbbrevCmds = {
 };
 const predefinedAbbrevCmdsByCommand = swapKeyValue(predefinedAbbrevCmds);
 
+const ignoredCommands = [
+];
 
 // E.g.: rrm: 'run --rm'
 let predefinedAbbrevParams = {
@@ -72,8 +77,9 @@ const createAliasesForLongParamsWithHyphen = false;
 // Note that the following container/image sub commands are deliberately not excluded (as they only exist as subcommand)
 // - prune,
 // - inspect (docker image inspect is more specific than docker inspect)
-const filterLegacySubCommands = false; // docker ps, docker rmi, etc
-const filterLegacySubCommandReplacements = true; // docker container ls, docker image rm, etc
+const filterLegacySubCommands = envToBool('FILTER_LEGACY_SUBCOMMANDS', false); // docker ps, docker rmi, etc
+const filterLegacySubCommandReplacements = envToBool('FILTER_LEGACY_SUBCOMMANDS_REPLACEMENTS', true); // docker container ls, docker image rm, etc
+
 const legacyCommandReplacements = {
     'container attach': 'attach',
     'container commit': 'commit',
@@ -154,6 +160,7 @@ function parseCommands(command, parent, currentResult) {
         .then(execOut => {
             let stdoutLines = execOut.stdout.split(/\r?\n/);
             let nextSubCommands = findCommands(stdoutLines);
+            nextSubCommands = nextSubCommands.filter( subCommand => !ignoredCommands.includes(subCommand))
 
             let commandObject = {cmd: command, parent: parent, cmdString: absoluteCommand};
             commandObject.subcommands = nextSubCommands;
@@ -249,7 +256,10 @@ function createCommandAbbrevs(commands, abbrevs, conflicts) {
                         // Conflict persists
                         conflicts.push(potentialAbbrev);
                     } else {
-                        if (!conflicts.includes(potentialAbbrev)) {
+                        if (!conflicts.includes(potentialAbbrev) &&
+                                // Abbrev already taken (e.g. predefined)
+                                !abbrevs[potentialAbbrev]) {
+                        
                             // We have found a compromise
                             setAbbrev(abbrevs, potentialAbbrev, commandObj);
                             updateAbbrev(abbrevs, competingAbbrev, competingCommand, commands);
@@ -277,7 +287,7 @@ function createAbbrevs(commands, predefined) {
     Object.keys(predefined).forEach(predefinedAbbrev => {
         let predefinedCommand = commands[predefined[predefinedAbbrev]];
         if (!predefinedCommand) {
-            console.error(`Skipping predefined command, because not returned by docker CLI: ${predefined[predefinedAbbrev]}`)
+            console.error(`Skipping predefined command, because not returned by binary: ${predefined[predefinedAbbrev]}`)
             return
         }
         abbrevs[predefinedAbbrev] = predefinedCommand;
@@ -300,9 +310,11 @@ function createAbbrevs(commands, predefined) {
 }
 
 function changeBinaryAbbrevStandalone(abbrevs) {
-    abbrevs[binaryAbbrevStandalone] = abbrevs[binaryAbbrev];
-    delete abbrevs[binaryAbbrev];
-    abbrevs[binaryAbbrevStandalone].abbrev = binaryAbbrevStandalone;
+    if (binaryAbbrev !== binaryAbbrevStandalone) {
+        abbrevs[binaryAbbrevStandalone] = abbrevs[binaryAbbrev];
+        delete abbrevs[binaryAbbrev];
+        abbrevs[binaryAbbrevStandalone].abbrev = binaryAbbrevStandalone;
+    }
 }
 
 function addParamAbbrevs(abbrevs) {
@@ -501,17 +513,29 @@ function findCommands(stdoutLines) {
             stdOutLine.startsWith('  ')) {
             commandLines.push(stdOutLine)
         } else if (stdOutLine.startsWith('Commands:') ||
+            stdOutLine.startsWith('Available Commands:') || 
             stdOutLine.startsWith('Management Commands:')) {
             afterCommandsLine = true
+        } else if (stdOutLine.startsWith('Flags:')) {
+            // In docker 20 docker context is different: "Flags" are bellow "Available Commands"
+            afterCommandsLine = false
         }
     });
     return commandLines.map(subCommand => subCommand.replace(/ *(\w-*)\** .*/, "$1").trim());
 }
 
 function findParams(stdoutLines) {
-    let params = stdoutLines.filter(stdoutLine => /^ +-{1,2}\w*/.test(stdoutLine));
+    // exec() seems to be done width a line with of 80 chars (columns), so the docker .. --help commands get a lot more line breaks than neccsary.
+    // e.g. "docker  service update --help" returns
+    // "--max-concurrent uint                Number of job tasks to run concurrently (default equal to --replicas)"
+    // which is returned as three lines resulting in "--replicas" being interpreted as new parameter.
+    // So: Ignore when starting with "a lot" of spaces. Arbitrarily pick 20 :/
+    // It would be more robust to make exec() use more columns, but there's no obvious way to do this...
+    let params = stdoutLines.filter(stdoutLine => /^ {1,20}-{1,2}\w*/.test(stdoutLine));
     let paramObjs = params.map(param => {
-        const matchesShortParam = /-(\w), --([\w-]*) (\w*).*/.exec(param);
+        // Third group and space in front optional, because of
+        // "docker app image rm" -> "  -f, --force"
+        const matchesShortParam = /-(\w), --([\w-]*) ?(\w*)?.*/.exec(param);
         if (matchesShortParam === null) {
             const matchesLongParam = /--([\w-]*) (\w*).*/.exec(param);
             if (matchesLongParam === null) {
@@ -543,4 +567,13 @@ function printAliases(commandAliases) {
 
     // Print to stderr in order to allow for piping stdout to aliases file
     console.error(`Created ${nAliases} aliases.`)
+}
+
+function envToBool(envVar, defaultValue) {
+    let envVarVal = process.env[envVar];
+    if (!envVarVal) {
+        return defaultValue
+    } else {
+        return (envVarVal === 'true');
+    }
 }

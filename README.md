@@ -1,6 +1,6 @@
 # docker-aliases
-[![Build Status](https://travis-ci.org/schnatterer/docker-aliases.svg?branch=master)](https://travis-ci.org/schnatterer/docker-aliases)
-[![](https://images.microbadger.com/badges/image/schnatterer/docker-aliases.svg)](https://hub.docker.com/r/schnatterer/docker-aliases)
+[![Build](https://github.com/schnatterer/docker-aliases/actions/workflows/main.yml/badge.svg)](https://github.com/schnatterer/docker-aliases/actions/workflows/main.yml)
+[![Docker Hub](https://img.shields.io/docker/image-size/schnatterer/docker-aliases)](https://hub.docker.com/r/schnatterer/docker-aliases)
 
 (Semi-) automatically generated docker CLI aliases.
 
@@ -10,16 +10,28 @@ and [kubectl-aliases](https://github.com/ahmetb/kubectl-aliases).
 ## Installation
 
 ```bash
+DOCKER_ALIASES_VERSION=0.2.0
+# Download aliases
+curl -fSL "https://github.com/schnatterer/docker-aliases/releases/download/${DOCKER_ALIASES_VERSION}/default.docker-aliases" \
+  > ~/.docker_aliases
+# Test aliases in current shell
+source "~/.docker_aliases"
+# Or load aliases when zsh starts
+echo '[[ -f ~/.docker_aliases ]] && source ~/.docker_aliases' >> ~/.zshrc
+```
+Instead of downloading you could create the aliases yourself. This also allows for configuring the alias generated 
+(see [Configuring aliases](#configuring-aliases)).
+
+```bash
 # Create aliases with docker
-docker run --rm schnatterer/docker-aliases > ~/.docker_aliases && source ~/.docker_aliases
-# Alternative: Create aliases with local node and docker installation, executing script from this repo
-node createAliases.js | cat > ~/.docker_aliases && source ~/.docker_aliases
-# Load aliases when zsh starts
-echo "[[ -f ~/.docker_aliases ]] && source ~/.docker_aliases" >> ~/.zshrc
+docker run --rm schnatterer/docker-aliases:${DOCKER_ALIASES_VERSION} > ~/.docker_aliases
+# Create aliases with local node and docker installation, executing script from this repo
+node createAliases.js | cat > ~/.docker_aliases
 ```
 
-Note that in the container the `Docker Inc,` plugins `docker app` and `docker buildx` seem not to be included when
-run within docker container. 
+Note that there are slight differences between the container (that uses the static docker binary) and docker installed
+via the package manager. For example, the static binary does not provide `docker checkpoint`, `docker scan` and `-h`
+parameters.
 
 ## Learning aliases
 
@@ -35,6 +47,22 @@ Pro tip 2: Use an alias reminder such as [MichaelAquilina/zsh-you-should-use](ht
 $ docker run --rm -it --entrypoint javac gcr.io/distroless/java:8
 Found existing alias for "docker run --rm -it --entrypoint". You should use: "drrmitep"
 ```
+### Prominent examples
+
+```bash
+d # docker" - Note: This might overwrite oh-my-zsh function d(). This can be configured using BINARY_ABBREV_UPPER, see bellow. See also: https://github.com/robbyrussell/oh-my-zsh/blob/master/lib/directories.zsh 
+dl image # docker pull image
+dp image # docker push image
+dlg container # docker logs container
+dpsa # docker ps -a
+drit image # docker run -it image
+drrmd image # docker run --rm -d image'
+drrmit image sh # docker run --rm -it image sh
+drrmitep sh image # docker run --rm -it --entrypoint sh image
+drrmep id image # docker run --rm --entrypoint id image
+dexit container sh # docker exec -it container sh
+drmf container # docker rm -f container
+```
 
 ### Parameters in aliases
 
@@ -47,31 +75,40 @@ Are implemented by the following rules
   * has a predefined abbreviation (e.g. `entrypoint` = `ep`)
   * ~~contains a hyphen (is then abbreviated `<first char><first char after hyphen`, e.g. `--log-level` = `ll`)~~   
     (can be enable in code but results in thousands of aliases)
-* Order of parameters in alias
-  * Parameters without single character abbreviation go first,
-  * followed by the single character parameters (e.g. `-t`),
-  * The boolean parameter is always at the end  
+* Order of commands and paramaters in alias
+  * Commands go first (e.g. `docker run` -> `dr`)
+  * Parameters without single character abbreviation go next (e.g. `--rm`),
+  * followed by the single character parameters (e.g. `-i`),
+  * The non-boolean parameter is always at the end  (e.g. `-v`)
     (otherwise the the command would not be syntactically correct).
-  * If multiple Parameters without single character abbreviation or single char params the order is always alphabetical,  
-    i.e  params `a`, `b` and `c` -> `ab`, `ac`, `abc`, `bc`. Not `ba`, `ca`, etc.  
+  * If multiple Parameters without single character abbreviation or single char params, the order is always alphabetical,  
+    i.e.  params `a`, `b` and `c` -> aliases `ab`, `ac`, `abc`, `bc`. No aliases: `ba`, `ca`, etc.  
     Otherwise there would be way to many aliases.
 * Excluded aliased/"duplicated" parameters [introduced in Docker 1.13](https://www.docker.com/blog/whats-new-in-docker-1-13/) 
   in order to drastically reduce number of aliases (from 1800 to 1000 aliases at the time of implementing).  
   Favor "older" commands (e.g `docker ps`, `docker rmi`) over new ones (e.g. `docker container ls`, `docker image rm`) 
   because they are shorter (can be configured in the code, though)
 
-### Prominent examples
+## Configuring aliases
 
-```bash
-dpsa # docker ps -a
-drit image # docker run -it image
-drrmd image # docker run --rm -d image'
-drrmit image sh # docker run --rm -it image sh
-drrmitep sh image # docker run --rm -it --entrypoint sh image
-drrmep id image # docker run --rm --entrypoint id image
-dexit container sh # docker exec -it container sh
-drmf container # docker rm -f container
-```
+When generating aliases, they can be customized via environment variables.
+
+Note that changing those may or may not work. Especially increasing number of params will result in more conflicts and 
+even errors as the conflict handling is not perfect.
+
+| env var | default | notes |
+| ------- | ------- | ----- |
+| BINARY_ABBREV_UPPER| false | Create alias for with binary with capital letter, e.g. alias docker=D. All other aliases are not affected |
+| ENABLE_DOCKER_EXPERIMENTAL | true | Create aliases for experimental commands |
+| FILTER_LEGACY_SUBCOMMANDS | false | Remove aliases for legacy (but shorter) sub commands such as docker ps, docker rmi, etc. |
+| FILTER_LEGACY_SUBCOMMANDS_REPLACEMENTS| true | Remove aliases for newer (but longer) sub commands such as docker container ls, docker image rm, etc. |
+| NUMBER_OF_MAX_PARAMS_PER_ALIAS| 4 | Maximals parameter created into one alias, e.g. 4 - docker run --rm -i -t --entrypoint  |
+| NUMBER_OF_CHARS_OF_LONG_PARAMS_TO_USE_AS_ALIAS| 2 | Long params (those with `--`) are included into aliase up to this number of chars. E.g. 2: `--rm` is included `--tls` is not. |
+
+Use them like so
+
+* Local node: `ENABLE_DOCKER_EXPERIMENTAL=false node createAliases.js | cat > ~/.docker_aliases`
+* Docker: `docker run --rm -e ENABLE_DOCKER_EXPERIMENTAL=true schnatterer/docker-aliases:${DOCKER_ALIASES_VERSION} > ~/.docker_aliases`
 
 ## Aliases missing?
 
