@@ -4,6 +4,7 @@ FROM node as builder
 ARG DOCKER_VERSION=20.10.6
 ARG DOCKER_BUILDX_VERSION=0.5.1
 ARG DOCKER_APP_VERSION=0.9.1-beta3
+ARG DOCKER_SCAN_VERSION=0.8.0
 
 RUN mkdir -p /dist/usr/bin
 RUN mkdir -p /dist/home/node/.docker/cli-plugins
@@ -24,7 +25,13 @@ RUN mv docker-buildx /dist/home/node/.docker/cli-plugins/
 # Install "docker app" plugin
 RUN wget https://github.com/docker/app/releases/download/v${DOCKER_APP_VERSION}/docker-app-linux.tar.gz
 RUN tar xzf docker-app-linux.tar.gz
-RUN cp docker-app-plugin-linux /dist/home/node/.docker/cli-plugins/docker-app
+RUN mv docker-app-plugin-linux /dist/home/node/.docker/cli-plugins/docker-app
+
+# Install "docker scan" plugin
+#RUN wget https://github.com/docker/scan-cli-plugin/releases/download/latest/docker-scan_linux_amd64
+RUN wget https://github.com/docker/scan-cli-plugin/releases/download/v${DOCKER_SCAN_VERSION}/docker-scan_linux_amd64
+RUN chmod +x docker-scan_linux_amd64
+RUN mv docker-scan_linux_amd64 /dist/home/node/.docker/cli-plugins/docker-scan
 
 COPY package.json .
 COPY yarn.lock .
