@@ -3,7 +3,7 @@ name: Build
 on:
   # Triggers the workflow on push or pull request events but only for the develop branch
   push:
-    branches: [ develop ]
+    branches: [ develop, main ]
   pull_request:
     branches: [ develop ]
 
@@ -19,15 +19,15 @@ jobs:
           # Disabling shallow clone is recommended for improving relevancy of reporting with SonarCloud
           fetch-depth: 0
 
-      # TODO analyse main branch first
-      #- uses: sonarsource/sonarcloud-github-action@v1.6
-      #  env:
-      #    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #    SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      #  with:
-      #    args: >
-      #      -Dsonar.organization=schnatterer-github
-      #      -Dsonar.projectKey=info.schnatterer.docker-aliases
+     #  Fails with "Could not find a default branch to fall back on."
+     # - uses: sonarsource/sonarcloud-github-action@v1.6
+     #   env:
+     #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+     #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+     #   with:
+     #     args: >
+     #       -Dsonar.organization=schnatterer-github
+     #       -Dsonar.projectKey=info.schnatterer.docker-aliases
   
       - run: docker build --no-cache -t docker-aliases .
       # Make sure it creates more than 0 aliases
