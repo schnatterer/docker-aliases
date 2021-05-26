@@ -56,6 +56,8 @@ let predefinedAbbrevCmds = {
 };
 const predefinedAbbrevCmdsByCommand = swapKeyValue(predefinedAbbrevCmds);
 
+const ignoredCommands = [
+];
 
 // E.g.: rrm: 'run --rm'
 let predefinedAbbrevParams = {
@@ -158,6 +160,7 @@ function parseCommands(command, parent, currentResult) {
         .then(execOut => {
             let stdoutLines = execOut.stdout.split(/\r?\n/);
             let nextSubCommands = findCommands(stdoutLines);
+            nextSubCommands = nextSubCommands.filter( subCommand => !ignoredCommands.includes(subCommand))
 
             let commandObject = {cmd: command, parent: parent, cmdString: absoluteCommand};
             commandObject.subcommands = nextSubCommands;
