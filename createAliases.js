@@ -142,7 +142,6 @@ function createPredefinedAbbrevs(commands, abbrevs) {
         addPredefinedAbbrev(predefinedAbbrevParams, abbrev, prepended);
     });
 
-
     Object.keys(prepended).forEach(predefinedAbbrev => {
         let predefinedCommand = commands[prepended[predefinedAbbrev]];
         if (!predefinedCommand) {
@@ -216,8 +215,16 @@ function createCommandAbbrevs(commands, abbrevs, conflicts) {
         let predefinedAbbrev = predefinedAbbrevCmdsByCommand[currentSubCommand];
         if (predefinedAbbrev) {
             commandObj.predefined = true;
-            currentSubCommand = predefinedAbbrev;
-            //console.error(`Using predefined command for: ${commandObj.cmdString} : ${predefinedAbbrev}`);
+            const parentAbbrev = commandObj.parent ? commandObj.parent.abbrev : '';
+            let potentialAbbrev = `${parentAbbrev}${predefinedAbbrev}`
+            competingCommand = abbrevs[potentialAbbrev];
+            if (competingCommand) {
+                // Removed command gets a new abbrev on next loop
+                console.error(`Removing abbrev: ${potentialAbbrev} for cmd ${competingCommand.cmdString} in favor of predefined ${commandObj.cmdString}`);
+                removeAbbrev(abbrevs, competingCommand, commands);
+            }
+            setAbbrev(abbrevs, potentialAbbrev, commandObj);
+            return;
         }
 
         for (let i = 0; i < currentSubCommand.length + 1; i++) {
@@ -230,7 +237,9 @@ function createCommandAbbrevs(commands, abbrevs, conflicts) {
             if (!competingCommand) {
                 competingCommand = abbrevs[potentialAbbrev];
                 if (!competingCommand) {
-                    if (!conflicts.includes(potentialAbbrev) ||
+                    if ((!conflicts.includes(potentialAbbrev)  &&
+                        // Abbrev already taken (e.g. predefined)
+                        !abbrevs[potentialAbbrev] ) ||
                         // Last char of this command. Pick it even though there are conflicts.
                         // Example: "builds" & "builder" are processed. Then "build" is processed.
                         i === currentSubCommand.length - 1) {
@@ -272,7 +281,9 @@ function createCommandAbbrevs(commands, abbrevs, conflicts) {
                         
                             // We have found a compromise
                             setAbbrev(abbrevs, potentialAbbrev, commandObj);
-                            updateAbbrev(abbrevs, competingAbbrev, competingCommand, commands);
+                            if (!abbrevs[competingAbbrev]) {
+                                updateAbbrev(abbrevs, competingAbbrev, competingCommand, commands);
+                            } // else find abbrev with next pass
                             break
                         }
                     }
@@ -300,6 +311,8 @@ function createAbbrevs(commands) {
     // Why? An abbreviation might be changed in a later stage, e.g. because of predefinedAbbrevCmds
     // Then just unset the command that had the abbreviation and start again, so the "unset command" is processed again
     // and gets a new abbreviation.
+    // If running in an endless loop here, find out which is the missing command like so:
+    //Object.keys(commands).filter( x => ! Object.values(abbrevs).map( abbrev => abbrev.cmdString).includes(x))
     while (Object.keys(abbrevs).length < Object.keys(commands).length) {
         createCommandAbbrevs(commands, abbrevs, conflicts);
     }
