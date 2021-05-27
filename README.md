@@ -10,7 +10,7 @@ and [kubectl-aliases](https://github.com/ahmetb/kubectl-aliases).
 ## Installation
 
 ```bash
-DOCKER_ALIASES_VERSION=0.5.0
+DOCKER_ALIASES_VERSION=0.6.0
 # Download aliases
 curl -fSL "https://github.com/schnatterer/docker-aliases/releases/download/${DOCKER_ALIASES_VERSION}/default.docker-aliases" \
   > ~/.docker_aliases
