@@ -124,7 +124,7 @@ function main() {
     let commands = {};
     parseCommands('docker', undefined, commands)
         .then(() => {
-            let aliases = createAbbrevs(commands, createPredefinedAbbrevs());
+            let aliases = createAbbrevs(commands);
             printAliases(aliases)
         })
         .catch(err => {
@@ -133,7 +133,7 @@ function main() {
         })
 }
 
-function createPredefinedAbbrevs() {
+function createPredefinedAbbrevs(commands, abbrevs) {
     const prepended = {};
     Object.keys(predefinedAbbrevCmds).forEach(abbrev => {
         addPredefinedAbbrev(predefinedAbbrevCmds, abbrev, prepended);
@@ -142,7 +142,17 @@ function createPredefinedAbbrevs() {
         addPredefinedAbbrev(predefinedAbbrevParams, abbrev, prepended);
     });
 
-    return prepended;
+
+    Object.keys(prepended).forEach(predefinedAbbrev => {
+        let predefinedCommand = commands[prepended[predefinedAbbrev]];
+        if (!predefinedCommand) {
+            console.error(`Skipping predefined command, because not returned by binary: ${prepended[predefinedAbbrev]}`)
+            return
+        }
+        abbrevs[predefinedAbbrev] = predefinedCommand;
+        predefinedCommand.predefined = true;
+        predefinedCommand.abbrev = predefinedAbbrev;
+    });
 }
 
 function addPredefinedAbbrev(abbrevs, abbrev, prepended) {
@@ -279,21 +289,12 @@ function createCommandAbbrevs(commands, abbrevs, conflicts) {
     });
 }
 
-function createAbbrevs(commands, predefined) {
+function createAbbrevs(commands) {
 
     const abbrevs = {};
     const conflicts = [];
 
-    Object.keys(predefined).forEach(predefinedAbbrev => {
-        let predefinedCommand = commands[predefined[predefinedAbbrev]];
-        if (!predefinedCommand) {
-            console.error(`Skipping predefined command, because not returned by binary: ${predefined[predefinedAbbrev]}`)
-            return
-        }
-        abbrevs[predefinedAbbrev] = predefinedCommand;
-        predefinedCommand.predefined = true;
-        predefinedCommand.abbrev = predefinedAbbrev;
-    });
+    createPredefinedAbbrevs(commands, abbrevs)
 
     // Use a multi pass creation here.
     // Why? An abbreviation might be changed in a later stage, e.g. because of predefinedAbbrevCmds
