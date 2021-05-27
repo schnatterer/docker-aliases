@@ -62,6 +62,19 @@ drrmitep sh image # docker run --rm -it --entrypoint sh image
 drrmep id image # docker run --rm --entrypoint id image
 dexit container sh # docker exec -it container sh
 drmf container # docker rm -f container
+
+#See https://github.com/docker/compose-cli/blob/main/INSTALL.md
+dco # docker compose 
+dcoup # docker compose up 
+dcoupd # docker compose up -d 
+dcob # docker compose build
+dcod # docker compose down
+dcodv # docker compose down -v
+dcolg # docker compose logs
+dcolg # docker compose logs
+dcol # docker compose pull
+dcoex service command # docker compose logs service command
+dcof file up # docker compose -f file up
 ```
 
 ### Parameters in aliases

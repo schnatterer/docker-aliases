@@ -35,8 +35,9 @@ let predefinedAbbrevCmds = {
     br: 'builder',
     bx: 'buildx',
     c: 'container',
-    cm: 'commit',
     cf: 'config',
+    cm: 'commit',
+    co: 'compose',
     cx: 'context',
     ex: 'exec',
     img: 'image',
@@ -49,10 +50,10 @@ let predefinedAbbrevCmds = {
     r: 'run',
     s: 'swarm',
     se: 'search',
-    svc: 'service',
     st: 'stack',
-    t: 'tag',
     sta: 'start',
+    svc: 'service',
+    t: 'tag',
 };
 const predefinedAbbrevCmdsByCommand = swapKeyValue(predefinedAbbrevCmds);
 
